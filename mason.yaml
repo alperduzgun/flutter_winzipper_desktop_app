@@ -1,0 +1,18 @@
+# Mason configuration for code generation
+# Usage: mason make <brick_name> -o <output_path> --name <name>
+
+bricks:
+  # Feature module generator
+  # Usage: mason make feature -o lib/feature --name my_feature
+  feature:
+    path: bricks/feature
+
+  # Data layer generator (repo + service)
+  # Usage: mason make data -o lib/data --name my_data
+  data:
+    path: bricks/data
+
+  # Cubit generator
+  # Usage: mason make cubit -o lib/feature/my_feature/cubit --name my_feature
+  cubit:
+    path: bricks/cubit

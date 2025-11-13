@@ -6,12 +6,30 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-import 'common/theme/theme.dart';
+import 'app/app.dart';
+import 'app/bootstrap.dart';
+import 'core/config/api_options.dart';
+import 'core/config/app_flavor.dart';
 import 'screens/home_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Load environment variables (development by default)
+  try {
+    await dotenv.load(fileName: '.env.development');
+  } catch (e) {
+    // If env file doesn't exist, continue with defaults
+  }
+
+  // Configure flavor
+  AppFlavor(
+    name: 'WinZipper [DEV]',
+    flavorType: FlavorType.development,
+    apiOptions: ApiOptions.development(),
+  );
 
   // Only initialize window features on desktop platforms
   if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
@@ -19,6 +37,7 @@ Future<void> main() async {
     try {
       await Window.initialize();
     } catch (e) {
+      // ignore: avoid_print
       print('Warning: Window.initialize failed: $e');
       // Continue anyway - window will work without acrylic effect
     }
@@ -31,33 +50,24 @@ Future<void> main() async {
       win.size = initialSize;
 
       win.alignment = Alignment.center;
-      win.title = "WinZipper - Archive Manager";
+      win.title = 'WinZipper - Archive Manager';
       win.show();
     });
   }
 
-  runApp(const MyApp());
+  // Bootstrap and run app with new architecture
+  await bootstrap(() => const MyApp());
 }
 
 const borderColor = Color(0xFF805306);
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        body: WindowBorder(
-          color: borderColor,
-          width: 1,
-          child: Row(
-            children: const [LeftSide(), RightSide()],
-          ),
-        ),
-      ),
-    );
+    // Use the new App widget with DI and architecture
+    return const App();
   }
 }
 

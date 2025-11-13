@@ -1,0 +1,62 @@
+flavors:
+  development:
+    app:
+      name: "WinZipper [DEV]"
+
+    android:
+      applicationId: "com.winzipper.dev"
+      icon: "assets/icons/ic_launcher_dev.png"
+
+    ios:
+      bundleId: "com.winzipper.dev"
+      icon: "assets/icons/ic_launcher_dev.png"
+
+    macos:
+      bundleId: "com.winzipper.dev"
+
+  staging:
+    app:
+      name: "WinZipper [STG]"
+
+    android:
+      applicationId: "com.winzipper.stg"
+      icon: "assets/icons/ic_launcher_stg.png"
+
+    ios:
+      bundleId: "com.winzipper.stg"
+      icon: "assets/icons/ic_launcher_stg.png"
+
+    macos:
+      bundleId: "com.winzipper.stg"
+
+  production:
+    app:
+      name: "WinZipper"
+
+    android:
+      applicationId: "com.winzipper"
+      icon: "assets/icons/ic_launcher.png"
+
+    ios:
+      bundleId: "com.winzipper"
+      icon: "assets/icons/ic_launcher.png"
+
+    macos:
+      bundleId: "com.winzipper"
+
+instructions:
+  - assets:download
+  - assets:extract
+  - android:buildGradle
+  - android:androidManifest
+  - ios:podfile
+  - ios:xcconfig
+  - ios:buildTargets
+  - ios:schema
+  - ios:plist
+  - macos:podfile
+  - macos:xcconfig
+  - macos:buildTargets
+  - macos:schema
+  - macos:configs
+  - assets:clean
