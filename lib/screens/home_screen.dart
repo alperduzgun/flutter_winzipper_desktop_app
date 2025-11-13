@@ -534,498 +534,533 @@ class HomeScreenState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Selected archive info
-        if (_selectedFilePath != null)
-          ClipRRect(
+        if (_selectedFilePath != null) _buildSelectedArchiveInfo(),
+        const SizedBox(height: 16),
+        if (_archiveContents.isNotEmpty || _isLoading)
+          Expanded(child: _buildArchiveContents()),
+        if (_archiveContents.isEmpty && _selectedFilePath == null && !_isLoading)
+          Expanded(child: _buildEmptyState()),
+      ],
+    );
+  }
+
+  Widget _buildSelectedArchiveInfo() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(24),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withOpacity(0.75),
+                Colors.white.withOpacity(0.35),
+                Colors.white.withOpacity(0.45),
+              ],
+              stops: const [0.0, 0.5, 1.0],
+            ),
             borderRadius: BorderRadius.circular(24),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.white.withOpacity(0.75),
-                      Colors.white.withOpacity(0.35),
-                      Colors.white.withOpacity(0.45),
-                    ],
-                    stops: const [0.0, 0.5, 1.0],
-                  ),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.9),
-                    width: 2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFF6A00C).withOpacity(0.12),
-                      blurRadius: 60,
-                      spreadRadius: -10,
-                      offset: const Offset(0, 20),
-                    ),
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.06),
-                      blurRadius: 30,
-                      spreadRadius: -5,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  const Color(0xFFF6A00C).withOpacity(0.15),
-                                  const Color(0xFFF6A00C).withOpacity(0.08),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: const Color(0xFFF6A00C).withOpacity(0.3),
-                                width: 1,
-                              ),
-                            ),
-                            child: const Icon(
-                              Icons.archive,
-                              color: Color(0xFFF6A00C),
-                              size: 36,
-                            ),
-                          ),
-                          const SizedBox(width: 18),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  path.basename(_selectedFilePath!),
-                                  style: const TextStyle(
-                                    fontSize: 19,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: -0.4,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  _getArchiveTypeLabel(),
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey.shade700,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade100.withOpacity(0.5),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: IconButton(
-                              icon: const Icon(Icons.close),
-                              onPressed: _clearSelection,
-                              tooltip: 'Clear selection',
-                              iconSize: 20,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        _selectedFilePath!,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: _isLoading ? null : _extractArchive,
-                              icon: const Icon(Icons.unarchive, size: 20),
-                              label: const Text(
-                                'Extract Archive',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: -0.2,
-                                ),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFF6A00C),
-                                foregroundColor: Colors.white,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 16),
-                                elevation: 0,
-                                shadowColor:
-                                    const Color(0xFFF6A00C).withOpacity(0.4),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            border: Border.all(
+              color: Colors.white.withOpacity(0.9),
+              width: 2,
             ),
-          ),
-
-        const SizedBox(height: 16),
-
-        // Status message
-        if (_statusMessage.isNotEmpty)
-          ClipRRect(
-            borderRadius: BorderRadius.circular(18),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: _isLoading
-                        ? [
-                            Colors.blue.shade50.withOpacity(0.85),
-                            Colors.blue.shade50.withOpacity(0.5),
-                            Colors.blue.shade100.withOpacity(0.6),
-                          ]
-                        : _statusMessage.contains('Error') ||
-                                _statusMessage.contains('Failed')
-                            ? [
-                                Colors.red.shade50.withOpacity(0.85),
-                                Colors.red.shade50.withOpacity(0.5),
-                                Colors.red.shade100.withOpacity(0.6),
-                              ]
-                            : [
-                                Colors.green.shade50.withOpacity(0.85),
-                                Colors.green.shade50.withOpacity(0.5),
-                                Colors.green.shade100.withOpacity(0.6),
-                              ],
-                    stops: const [0.0, 0.5, 1.0],
-                  ),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: _isLoading
-                        ? Colors.blue.shade200.withOpacity(0.7)
-                        : _statusMessage.contains('Error') ||
-                                _statusMessage.contains('Failed')
-                            ? Colors.red.shade200.withOpacity(0.7)
-                            : Colors.green.shade200.withOpacity(0.7),
-                    width: 1.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: (_isLoading
-                              ? Colors.blue
-                              : _statusMessage.contains('Error') ||
-                                      _statusMessage.contains('Failed')
-                                  ? Colors.red
-                                  : Colors.green)
-                          .withOpacity(0.15),
-                      blurRadius: 30,
-                      spreadRadius: -5,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    if (_isLoading)
-                      SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.blue.shade600),
-                        ),
-                      )
-                    else
-                      Icon(
-                        _statusMessage.contains('Error') ||
-                                _statusMessage.contains('Failed')
-                            ? Icons.error_outline
-                            : Icons.check_circle_outline,
-                        size: 20,
-                        color: _statusMessage.contains('Error') ||
-                                _statusMessage.contains('Failed')
-                            ? Colors.red.shade700
-                            : Colors.green.shade700,
-                      ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Text(
-                        _statusMessage,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.grey.shade800,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFF6A00C).withOpacity(0.12),
+                blurRadius: 60,
+                spreadRadius: -10,
+                offset: const Offset(0, 20),
               ),
-            ),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 30,
+                spreadRadius: -5,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
+        ),
+      ),
+    );
+  }
 
-        const SizedBox(height: 16),
-
-        // Archive contents
-        if (_archiveContents.isNotEmpty)
-          Expanded(
-            child: ClipRRect(
+  Widget _buildArchiveContents() {
+    if (_isLoading) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withOpacity(0.75),
+                  Colors.white.withOpacity(0.35),
+                  Colors.white.withOpacity(0.45),
+                ],
+                stops: const [0.0, 0.5, 1.0],
+              ),
               borderRadius: BorderRadius.circular(24),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.white.withOpacity(0.75),
-                        Colors.white.withOpacity(0.35),
-                        Colors.white.withOpacity(0.45),
-                      ],
-                      stops: const [0.0, 0.5, 1.0],
-                    ),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.9),
-                      width: 2,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFF6A00C).withOpacity(0.08),
-                        blurRadius: 60,
-                        spreadRadius: -10,
-                        offset: const Offset(0, 20),
-                      ),
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 30,
-                        spreadRadius: -5,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(20.0),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Colors.grey.shade50.withOpacity(0.9),
-                              Colors.grey.shade50.withOpacity(0.4),
-                            ],
-                          ),
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(20),
-                            topRight: Radius.circular(20),
-                          ),
-                          border: Border(
-                            bottom: BorderSide(
-                              color: Colors.grey.shade200.withOpacity(0.5),
-                              width: 1,
-                            ),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.6),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(Icons.list, size: 20),
-                            ),
-                            const SizedBox(width: 12),
-                            const Text(
-                              'Archive Contents',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: -0.3,
-                              ),
-                            ),
-                            const Spacer(),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    const Color(0xFFF6A00C),
-                                    const Color(0xFFF6A00C).withOpacity(0.8),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFFF6A00C)
-                                        .withOpacity(0.3),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Text(
-                                '${_archiveContents.length} ${_archiveContents.length == 1 ? 'item' : 'items'}',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.2,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: ListView.separated(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          itemCount: _archiveContents.length,
-                          separatorBuilder: (context, index) => Divider(
-                            height: 1,
-                            indent: 16,
-                            endIndent: 16,
-                            color: Colors.grey.shade200.withOpacity(0.5),
-                          ),
-                          itemBuilder: (context, index) {
-                            final item = _archiveContents[index];
-                            final isFolder = item.endsWith('/');
-                            return ListTile(
-                              dense: true,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 4,
-                              ),
-                              leading: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: isFolder
-                                      ? const Color(0xFFF6A00C).withOpacity(0.1)
-                                      : Colors.grey.shade100.withOpacity(0.6),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(
-                                  isFolder
-                                      ? Icons.folder
-                                      : Icons.insert_drive_file,
-                                  color: isFolder
-                                      ? const Color(0xFFF6A00C)
-                                      : Colors.grey.shade600,
-                                  size: 20,
-                                ),
-                              ),
-                              title: Text(
-                                item,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.grey.shade800,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.9),
+                width: 2,
               ),
             ),
-          ),
-
-        // Empty state
-        if (_archiveContents.isEmpty &&
-            _selectedFilePath == null &&
-            !_isLoading)
-          Expanded(
             child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(32),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Colors.grey.shade100.withOpacity(0.9),
-                          Colors.grey.shade100.withOpacity(0.4),
-                        ],
-                      ),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.grey.shade300.withOpacity(0.5),
-                        width: 2,
-                      ),
-                    ),
-                    child: Icon(
-                      Icons.archive_outlined,
-                      size: 80,
-                      color: Colors.grey.shade400,
+                  CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      const Color(0xFFF6A00C),
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 16),
                   Text(
-                    'No Archive Selected',
+                    _statusMessage,
                     style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade800,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Use the sidebar to open or create an archive',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w400,
+                      fontSize: 14,
+                      color: Colors.grey.shade700,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
               ),
             ),
           ),
-      ],
+        ),
+      );
+    }
+
+    if (_archiveContents.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final folders = _archiveContents.where((item) => item.endsWith('/')).length;
+    final files = _archiveContents.length - folders;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(24),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withOpacity(0.75),
+                Colors.white.withOpacity(0.35),
+                Colors.white.withOpacity(0.45),
+              ],
+              stops: const [0.0, 0.5, 1.0],
+            ),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: Colors.white.withOpacity(0.9),
+              width: 2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFF6A00C).withOpacity(0.08),
+                blurRadius: 60,
+                spreadRadius: -10,
+                offset: const Offset(0, 20),
+              ),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 30,
+                spreadRadius: -5,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Toolbar
+              _buildToolbar(),
+
+              // Breadcrumb
+              _buildBreadcrumb(),
+
+              // Table Header
+              _buildTableHeader(),
+
+              // Table Content
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _archiveContents.length,
+                  itemBuilder: (context, index) {
+                    final item = _archiveContents[index];
+                    final isFolder = item.endsWith('/');
+                    return _buildTableRow(item, isFolder, index);
+                  },
+                ),
+              ),
+
+              // Footer Summary
+              _buildFooterSummary(folders, files),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.grey.shade100.withOpacity(0.9),
+                  Colors.grey.shade100.withOpacity(0.4),
+                ],
+              ),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.grey.shade300.withOpacity(0.5),
+                width: 2,
+              ),
+            ),
+            child: Icon(
+              Icons.archive_outlined,
+              size: 80,
+              color: Colors.grey.shade400,
+            ),
+          ),
+          const SizedBox(height: 32),
+          Text(
+            'No Archive Selected',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade800,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Use the sidebar to open or create an archive',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToolbar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50.withOpacity(0.5),
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.grey.shade200.withOpacity(0.5),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          _buildToolbarButton(
+              Icons.unarchive, 'Extract', () => _extractArchive()),
+          _buildToolbarButton(Icons.search, 'Find', () {}),
+          _buildToolbarButton(Icons.visibility, 'View', () {}),
+          _buildToolbarButton(Icons.info_outline, 'Info', () {}),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToolbarButton(IconData icon, String label, VoidCallback onTap) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 20, color: Colors.grey.shade700),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey.shade700,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBreadcrumb() {
+    final fileName =
+        _selectedFilePath != null ? path.basename(_selectedFilePath!) : '';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.3),
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.grey.shade200.withOpacity(0.5),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.chevron_left, size: 18, color: Colors.grey.shade600),
+          const SizedBox(width: 8),
+          Icon(Icons.chevron_right, size: 18, color: Colors.grey.shade600),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Row(
+              children: [
+                Icon(Icons.archive, size: 16, color: Colors.grey.shade600),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    fileName,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade700,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTableHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50.withOpacity(0.7),
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.grey.shade300.withOpacity(0.5),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 4,
+            child: Text(
+              'Name',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              'Kind',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 100,
+            child: Text(
+              'Size',
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTableRow(String item, bool isFolder, int index) {
+    final fileName = path.basename(item);
+    return InkWell(
+      onTap: () {},
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        decoration: BoxDecoration(
+          color:
+              index.isEven ? Colors.white.withOpacity(0.3) : Colors.transparent,
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: isFolder
+                    ? const Color(0xFFFFD500).withOpacity(0.2)
+                    : Colors.blue.shade50.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(
+                isFolder ? Icons.folder : _getFileIcon(fileName),
+                color:
+                    isFolder ? const Color(0xFFF6A00C) : Colors.blue.shade700,
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 4,
+              child: Text(
+                fileName,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade800,
+                  fontWeight: FontWeight.w500,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                isFolder ? 'Folder' : _getFileKind(fileName),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            SizedBox(
+              width: 100,
+              child: Text(
+                isFolder ? '--' : '',
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFooterSummary(int folders, int files) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50.withOpacity(0.5),
+        border: Border(
+          top: BorderSide(
+            color: Colors.grey.shade200.withOpacity(0.5),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Text(
+            'Total $folders ${folders == 1 ? 'folder' : 'folders'} and $files ${files == 1 ? 'file' : 'files'}',
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey.shade600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getFileIcon(String fileName) {
+    final ext = path.extension(fileName).toLowerCase();
+    switch (ext) {
+      case '.pdf':
+        return Icons.picture_as_pdf;
+      case '.doc':
+      case '.docx':
+        return Icons.description;
+      case '.xls':
+      case '.xlsx':
+        return Icons.table_chart;
+      case '.txt':
+        return Icons.text_snippet;
+      case '.jpg':
+      case '.jpeg':
+      case '.png':
+      case '.gif':
+        return Icons.image;
+      case '.zip':
+      case '.rar':
+      case '.7z':
+        return Icons.folder_zip;
+      default:
+        return Icons.insert_drive_file;
+    }
+  }
+
+  String _getFileKind(String fileName) {
+    final ext = path.extension(fileName).toLowerCase();
+    switch (ext) {
+      case '.pdf':
+        return 'PDF Document';
+      case '.doc':
+      case '.docx':
+        return 'Microsoft Document';
+      case '.xls':
+      case '.xlsx':
+        return 'Microsoft Document';
+      case '.txt':
+        return 'TXT Document';
+      case '.jpg':
+      case '.jpeg':
+      case '.png':
+      case '.gif':
+        return 'Image';
+      case '.zip':
+        return 'ZIP Archive';
+      case '.rar':
+        return 'RAR Archive';
+      case '.7z':
+        return '7-Zip Archive';
+      default:
+        return 'Document';
+    }
+  }
 }

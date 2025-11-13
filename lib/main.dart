@@ -2,6 +2,7 @@
 // https://github.com/bitsdojo/bitsdojo_window#getting-started
 
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'package:flutter/material.dart';
@@ -72,17 +73,37 @@ class LeftSide extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
         width: 220,
-        child: Container(
-            decoration: BoxDecoration(
-              color: platformBackgroundColor(context),
-              border: Border(
-                right: BorderSide(
-                  color: Colors.grey.shade300,
-                  width: 1,
+        child: ClipRRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+            child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withOpacity(0.7),
+                      Colors.white.withOpacity(0.5),
+                      Colors.white.withOpacity(0.6),
+                    ],
+                    stops: const [0.0, 0.5, 1.0],
+                  ),
+                  border: Border(
+                    right: BorderSide(
+                      color: Colors.white.withOpacity(0.8),
+                      width: 1.5,
+                    ),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFF6A00C).withOpacity(0.08),
+                      blurRadius: 30,
+                      spreadRadius: -5,
+                      offset: const Offset(4, 0),
+                    ),
+                  ],
                 ),
-              ),
-            ),
-            child: Column(
+                child: Column(
               children: [
                 WindowTitleBarBox(child: MoveWindow()),
                 const SizedBox(height: 20),
@@ -205,7 +226,11 @@ class LeftSide extends StatelessWidget {
                   ),
                 ),
               ],
-            )));
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
