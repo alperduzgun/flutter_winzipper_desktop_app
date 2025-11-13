@@ -100,10 +100,11 @@ class CloudUploadService {
       return UploadResult.failure('File is empty');
     }
 
-    // Litterbox doesn't specify size limit, but reasonable limit for free service
+    // Litterbox free tier limit is 1GB
+    // (Tier 2 supporters: 500MB, Tier 3: 1GB with 7-day retention)
     if (fileSize > 1 * 1024 * 1024 * 1024) {
       return UploadResult.failure(
-        'File too large (${formatFileSize(fileSize)}). Max: 1GB',
+        'File too large (${formatFileSize(fileSize)}).\nMax: 1GB for free uploads',
       );
     }
 
@@ -112,6 +113,10 @@ class CloudUploadService {
     // Litterbox uses multipart form data
     final uri = Uri.parse(_uploadUrl);
     final request = http.MultipartRequest('POST', uri);
+
+    // Add headers to avoid bot detection / Cloudflare blocks
+    request.headers['User-Agent'] = 'WinZipper/${Platform.operatingSystem}';
+    request.headers['Accept'] = '*/*';
 
     // Add form fields
     request.fields['reqtype'] = 'fileupload';
@@ -122,6 +127,8 @@ class CloudUploadService {
     final stream = file.openRead();
 
     // Track progress with stream transformer
+    // Note: This tracks file read progress, not network upload progress.
+    // For network progress, we'd need to use StreamedRequest with custom logic.
     final progressStream = stream.transform(
       StreamTransformer.fromHandlers(
         handleData: (List<int> data, EventSink<List<int>> sink) {
@@ -164,11 +171,24 @@ class CloudUploadService {
       if (downloadUrl.isNotEmpty &&
           downloadUrl.startsWith('http') &&
           !downloadUrl.contains('<html>') &&
-          !downloadUrl.contains('error')) {
+          !downloadUrl.toLowerCase().contains('error') &&
+          !downloadUrl.toLowerCase().contains('access denied')) {
         return UploadResult.success(downloadUrl);
       } else {
-        return UploadResult.failure('Invalid response from server');
+        // Return the actual error message from server
+        return UploadResult.failure(
+          'Upload rejected: ${downloadUrl.isEmpty ? "No response" : downloadUrl}',
+        );
       }
+    } else if (streamedResponse.statusCode == 403) {
+      // Cloudflare or access restriction
+      return UploadResult.failure(
+        'Access denied by server.\n'
+        'Possible causes:\n'
+        '• Service is blocking uploads\n'
+        '• Cloudflare protection active\n'
+        '• Try again later',
+      );
     } else if (streamedResponse.statusCode == 429) {
       // Rate limit - will retry with backoff
       throw SocketException('Rate limit exceeded');
