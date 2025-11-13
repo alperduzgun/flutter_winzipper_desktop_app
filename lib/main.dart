@@ -13,18 +13,22 @@ import 'screens/home_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  doWhenWindowReady(() {
-    final win = appWindow;
-    const initialSize = Size(900, 700);
-    win.minSize = initialSize;
-    win.size = initialSize;
+  // Only initialize window features on desktop platforms
+  if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
+    doWhenWindowReady(() {
+      final win = appWindow;
+      const initialSize = Size(900, 700);
+      win.minSize = initialSize;
+      win.size = initialSize;
 
-    win.alignment = Alignment.center;
-    win.title = "WinZipper - Archive Manager";
-    win.show();
-  });
+      win.alignment = Alignment.center;
+      win.title = "WinZipper - Archive Manager";
+      win.show();
+    });
 
-  await Window.initialize();
+    await Window.initialize();
+  }
+
   runApp(const MyApp());
 }
 

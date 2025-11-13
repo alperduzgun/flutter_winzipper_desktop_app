@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as path;
 import '../services/archive_service.dart';
+import '../utils/system_tools_checker.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -57,6 +58,25 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_selectedFilePath == null) return;
 
     try {
+      // Check if required tools are available for this archive type
+      String? requiredTool;
+      if (_currentArchiveType == ArchiveType.rar) {
+        requiredTool = 'unrar';
+      } else if (_currentArchiveType == ArchiveType.sevenZip) {
+        requiredTool = '7z';
+      }
+
+      if (requiredTool != null) {
+        final isAvailable = await SystemToolsChecker.isToolAvailable(requiredTool);
+        if (!isAvailable) {
+          _showErrorDialog(
+            'Tool Not Found',
+            SystemToolsChecker.getToolErrorMessage(requiredTool),
+          );
+          return;
+        }
+      }
+
       final result = await FilePicker.platform.getDirectoryPath();
 
       if (result != null) {
@@ -80,7 +100,11 @@ class _HomeScreenState extends State<HomeScreen> {
         if (success) {
           _showSuccessDialog('Extraction Complete', 'Archive extracted to:\n$result');
         } else {
-          _showErrorDialog('Extraction Failed', 'Could not extract the archive. Please check if you have the required tools installed (unrar, 7z).');
+          String errorMessage = 'Could not extract the archive.';
+          if (requiredTool != null) {
+            errorMessage += '\n\n${SystemToolsChecker.getInstallationInstructions(requiredTool)}';
+          }
+          _showErrorDialog('Extraction Failed', errorMessage);
         }
       }
     } catch (e) {
@@ -88,6 +112,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _isLoading = false;
         _statusMessage = 'Error: ${e.toString()}';
       });
+      _showErrorDialog('Error', 'An unexpected error occurred:\n${e.toString()}');
     }
   }
 
@@ -116,6 +141,26 @@ class _HomeScreenState extends State<HomeScreen> {
         );
 
         if (saveResult != null) {
+          // Check if required tools are available for the chosen archive type
+          final archiveType = ArchiveService.detectArchiveType(saveResult);
+          String? requiredTool;
+          if (archiveType == ArchiveType.rar) {
+            requiredTool = 'rar';
+          } else if (archiveType == ArchiveType.sevenZip) {
+            requiredTool = '7z';
+          }
+
+          if (requiredTool != null) {
+            final isAvailable = await SystemToolsChecker.isToolAvailable(requiredTool);
+            if (!isAvailable) {
+              _showErrorDialog(
+                'Tool Not Found',
+                SystemToolsChecker.getToolErrorMessage(requiredTool),
+              );
+              return;
+            }
+          }
+
           setState(() {
             _isLoading = true;
             _statusMessage = 'Compressing ${sourcePaths.length} ${sourcePaths.length == 1 ? 'file' : 'files'}...';
@@ -136,7 +181,11 @@ class _HomeScreenState extends State<HomeScreen> {
           if (success) {
             _showSuccessDialog('Compression Complete', 'Archive created at:\n$saveResult');
           } else {
-            _showErrorDialog('Compression Failed', 'Could not create the archive. Please try again.');
+            String errorMessage = 'Could not create the archive.';
+            if (requiredTool != null) {
+              errorMessage += '\n\n${SystemToolsChecker.getInstallationInstructions(requiredTool)}';
+            }
+            _showErrorDialog('Compression Failed', errorMessage);
           }
         }
       }
@@ -163,6 +212,26 @@ class _HomeScreenState extends State<HomeScreen> {
         );
 
         if (saveResult != null) {
+          // Check if required tools are available for the chosen archive type
+          final archiveType = ArchiveService.detectArchiveType(saveResult);
+          String? requiredTool;
+          if (archiveType == ArchiveType.rar) {
+            requiredTool = 'rar';
+          } else if (archiveType == ArchiveType.sevenZip) {
+            requiredTool = '7z';
+          }
+
+          if (requiredTool != null) {
+            final isAvailable = await SystemToolsChecker.isToolAvailable(requiredTool);
+            if (!isAvailable) {
+              _showErrorDialog(
+                'Tool Not Found',
+                SystemToolsChecker.getToolErrorMessage(requiredTool),
+              );
+              return;
+            }
+          }
+
           setState(() {
             _isLoading = true;
             _statusMessage = 'Compressing directory...';
@@ -183,7 +252,11 @@ class _HomeScreenState extends State<HomeScreen> {
           if (success) {
             _showSuccessDialog('Compression Complete', 'Archive created at:\n$saveResult');
           } else {
-            _showErrorDialog('Compression Failed', 'Could not create the archive. Please try again.');
+            String errorMessage = 'Could not create the archive.';
+            if (requiredTool != null) {
+              errorMessage += '\n\n${SystemToolsChecker.getInstallationInstructions(requiredTool)}';
+            }
+            _showErrorDialog('Compression Failed', errorMessage);
           }
         }
       }
