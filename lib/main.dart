@@ -150,12 +150,12 @@ class LeftSide extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        _FormatItem(icon: '📦', label: 'ZIP'),
-                        _FormatItem(icon: '📚', label: 'RAR'),
-                        _FormatItem(icon: '🗜️', label: '7-Zip'),
-                        _FormatItem(icon: '📄', label: 'TAR'),
-                        _FormatItem(icon: '💾', label: 'GZIP'),
-                        _FormatItem(icon: '📊', label: 'BZIP2'),
+                        _FormatItem(icon: Icons.folder_zip, label: 'ZIP'),
+                        _FormatItem(icon: Icons.inventory_2, label: 'RAR'),
+                        _FormatItem(icon: Icons.archive, label: '7-Zip'),
+                        _FormatItem(icon: Icons.storage, label: 'TAR'),
+                        _FormatItem(icon: Icons.compress, label: 'GZIP'),
+                        _FormatItem(icon: Icons.description, label: 'BZIP2'),
                       ],
                     ),
                   ),
@@ -194,7 +194,7 @@ class LeftSide extends StatelessWidget {
 }
 
 class _FormatItem extends StatelessWidget {
-  final String icon;
+  final IconData icon;
   final String label;
 
   const _FormatItem({
@@ -208,7 +208,7 @@ class _FormatItem extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Row(
         children: [
-          Text(icon, style: const TextStyle(fontSize: 16)),
+          Icon(icon, size: 16, color: Colors.grey.shade700),
           const SizedBox(width: 12),
           Text(
             label,
