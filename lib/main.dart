@@ -8,18 +8,19 @@ import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
 
 import 'common/theme/theme.dart';
+import 'screens/home_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   doWhenWindowReady(() {
     final win = appWindow;
-    const initialSize = Size(600, 450);
+    const initialSize = Size(900, 700);
     win.minSize = initialSize;
     win.size = initialSize;
 
     win.alignment = Alignment.center;
-    win.title = "Custom window with Flutter";
+    win.title = "WinZipper - Archive Manager";
     win.show();
   });
 
@@ -65,8 +66,8 @@ class LeftSide extends StatelessWidget {
   }
 }
 
-const backgroundStartColor = Color(0xFFFFD500);
-const backgroundEndColor = Color(0xFFF6A00C);
+const backgroundStartColor = Color(0xFFFFFFFF);
+const backgroundEndColor = Color(0xFFF5F5F5);
 
 class RightSide extends StatelessWidget {
   const RightSide({Key? key}) : super(key: key);
@@ -86,7 +87,8 @@ class RightSide extends StatelessWidget {
             child: Row(
               children: [Expanded(child: MoveWindow()), const WindowButtons()],
             ),
-          )
+          ),
+          const Expanded(child: HomeScreen()),
         ]),
       ),
     );
