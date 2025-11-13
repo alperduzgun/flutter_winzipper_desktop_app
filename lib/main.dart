@@ -15,6 +15,15 @@ Future<void> main() async {
 
   // Only initialize window features on desktop platforms
   if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
+    // Initialize flutter_acrylic first
+    try {
+      await Window.initialize();
+    } catch (e) {
+      print('Warning: Window.initialize failed: $e');
+      // Continue anyway - window will work without acrylic effect
+    }
+
+    // Then configure bitsdojo_window
     doWhenWindowReady(() {
       final win = appWindow;
       const initialSize = Size(900, 700);
@@ -25,8 +34,6 @@ Future<void> main() async {
       win.title = "WinZipper - Archive Manager";
       win.show();
     });
-
-    await Window.initialize();
   }
 
   runApp(const MyApp());
