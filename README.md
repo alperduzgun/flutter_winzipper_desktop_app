@@ -61,20 +61,37 @@ brew install p7zip
    cd flutter_winzipper_desktop_app
    ```
 
-2. Install dependencies:
+2. **RECOMMENDED**: Run pre-flight check to detect issues early:
+   ```bash
+   make check
+   ```
+   This will verify Flutter, CocoaPods, system tools, and dependencies.
+
+3. First-time setup (installs all dependencies):
+   ```bash
+   make setup
+   ```
+   Or manually:
    ```bash
    flutter pub get
+   cd macos && pod install && cd ..
    ```
 
-3. Run the application:
+4. Run the application:
    ```bash
+   make run
+   # or
    flutter run -d macos
    ```
 
-4. Build for release:
+5. Build for release:
    ```bash
+   make build
+   # or
    flutter build macos --release
    ```
+
+**Available Make Commands**: Run `make` or `make help` to see all commands.
 
 ## Usage
 
@@ -148,7 +165,23 @@ lib/
 
 ## Troubleshooting
 
-### "Command not found: unrar" or "Command not found: 7z"
+**First Step**: Run the pre-flight checker to diagnose common issues:
+```bash
+make check
+```
+
+This will check for:
+- Flutter installation
+- CocoaPods (with M1/M2 compatibility notes)
+- System tools (unrar, 7z, rar)
+- Xcode Command Line Tools
+- Dependencies
+- macOS version compatibility
+- Disk space
+
+### Common Issues Quick Reference
+
+#### "Command not found: unrar" or "Command not found: 7z"
 
 Install the required tools using Homebrew:
 ```bash
@@ -159,9 +192,24 @@ brew install unrar p7zip
 
 The app requests file system access through macOS entitlements. Make sure to grant permission when prompted.
 
-### Archive Won't Open
+#### Archive Won't Open
 
 Ensure the file is a valid archive and not corrupted. Try opening it with another tool to verify.
+
+#### CocoaPods Issues on M1/M2 Macs
+
+If `pod install` fails on Apple Silicon:
+```bash
+sudo arch -x86_64 gem install cocoapods
+sudo arch -x86_64 gem install ffi
+cd macos && arch -x86_64 pod install
+```
+
+### More Help
+
+- **Detailed Troubleshooting**: See [TROUBLESHOOTING_MACOS.md](TROUBLESHOOTING_MACOS.md) for step-by-step solutions
+- **Known Issues**: See [KNOWN_ISSUES.md](KNOWN_ISSUES.md) for complete list of known issues and compatibility notes
+- **Pre-flight Check**: Run `make check` to automatically diagnose issues
 
 ## Security & Stability
 
