@@ -14,15 +14,20 @@ class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<HomeScreen> createState() => HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class HomeScreenState extends State<HomeScreen> {
   String? _selectedFilePath;
   List<String> _archiveContents = [];
   bool _isLoading = false;
   String _statusMessage = '';
   ArchiveType _currentArchiveType = ArchiveType.unknown;
+
+  // Public methods to be called from main.dart
+  void pickArchiveFile() => _pickArchiveFile();
+  void compressFiles() => _compressFiles();
+  void compressDirectory() => _compressDirectory();
 
   Future<void> _pickArchiveFile() async {
     try {
@@ -520,262 +525,7 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: Colors.transparent,
       body: Padding(
         padding: const EdgeInsets.all(20.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Sidebar
-            _buildSidebar(),
-            const SizedBox(width: 20),
-
-            // Main Content Area
-            Expanded(
-              child: _buildMainContent(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSidebar() {
-    return SizedBox(
-      width: 280,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withOpacity(0.75),
-                  Colors.white.withOpacity(0.35),
-                  Colors.white.withOpacity(0.45),
-                ],
-                stops: const [0.0, 0.5, 1.0],
-              ),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.9),
-                width: 2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFF6A00C).withOpacity(0.08),
-                  blurRadius: 60,
-                  spreadRadius: -10,
-                  offset: const Offset(0, 20),
-                ),
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 30,
-                  spreadRadius: -5,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Sidebar Header
-                Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              const Color(0xFFF6A00C).withOpacity(0.15),
-                              const Color(0xFFF6A00C).withOpacity(0.08),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: const Color(0xFFF6A00C).withOpacity(0.3),
-                            width: 1,
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.archive,
-                          color: Color(0xFFF6A00C),
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'WinZipper',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: -0.4,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                Divider(
-                  height: 1,
-                  color: Colors.grey.shade200.withOpacity(0.5),
-                  indent: 20,
-                  endIndent: 20,
-                ),
-
-                const SizedBox(height: 12),
-
-                // Quick Actions Section
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text(
-                    'QUICK ACTIONS',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.grey.shade600,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                _buildSidebarMenuItem(
-                  icon: Icons.folder_open,
-                  title: 'Open Archive',
-                  color: const Color(0xFFF6A00C),
-                  onTap: _pickArchiveFile,
-                ),
-
-                _buildSidebarMenuItem(
-                  icon: Icons.compress,
-                  title: 'Compress Files',
-                  color: const Color(0xFF805306),
-                  onTap: _compressFiles,
-                ),
-
-                _buildSidebarMenuItem(
-                  icon: Icons.folder_zip,
-                  title: 'Compress Folder',
-                  color: const Color(0xFFFFD500),
-                  onTap: _compressDirectory,
-                ),
-
-                const Spacer(),
-
-                // App info footer
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'WinZipper',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade600,
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Archive Manager',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.grey.shade500,
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSidebarMenuItem({
-    required IconData icon,
-    required String title,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: _isLoading ? null : onTap,
-        borderRadius: BorderRadius.circular(14),
-        splashColor: color.withOpacity(0.1),
-        highlightColor: color.withOpacity(0.05),
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white.withOpacity(0.5),
-                Colors.white.withOpacity(0.2),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.6),
-              width: 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      color.withOpacity(0.2),
-                      color.withOpacity(0.1),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: color.withOpacity(0.3),
-                    width: 1.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: color.withOpacity(0.2),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Icon(icon, size: 22, color: color),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+        child: _buildMainContent(),
       ),
     );
   }
@@ -1278,33 +1028,4 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildFormatChip(String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.blue.shade50.withOpacity(0.9),
-            Colors.blue.shade50.withOpacity(0.6),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.blue.shade300.withOpacity(0.5),
-          width: 1,
-        ),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: Colors.blue.shade800,
-          letterSpacing: 0.2,
-        ),
-      ),
-    );
-  }
 }

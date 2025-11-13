@@ -3,12 +3,15 @@
 
 import 'dart:io';
 
-import 'package:flutter/material.dart';
 import 'package:bitsdojo_window/bitsdojo_window.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
 
 import 'common/theme/theme.dart';
 import 'screens/home_screen.dart';
+
+// GlobalKey to access HomeScreen methods
+final GlobalKey<HomeScreenState> homeScreenKey = GlobalKey<HomeScreenState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -52,8 +55,8 @@ class MyApp extends StatelessWidget {
         body: WindowBorder(
           color: borderColor,
           width: 1,
-          child: Row(
-            children: const [LeftSide(), RightSide()],
+          child: const Row(
+            children: [LeftSide(), RightSide()],
           ),
         ),
       ),
@@ -133,33 +136,46 @@ class LeftSide extends StatelessWidget {
                   ),
                 ),
                 const Divider(),
-                // Supported formats info
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'SUPPORTED FORMATS',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey.shade600,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        _FormatItem(icon: Icons.folder_zip, label: 'ZIP'),
-                        _FormatItem(icon: Icons.inventory_2, label: 'RAR'),
-                        _FormatItem(icon: Icons.archive, label: '7-Zip'),
-                        _FormatItem(icon: Icons.storage, label: 'TAR'),
-                        _FormatItem(icon: Icons.compress, label: 'GZIP'),
-                        _FormatItem(icon: Icons.description, label: 'BZIP2'),
-                      ],
+                const SizedBox(height: 8),
+                // Quick Actions
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    'QUICK ACTIONS',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade600,
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ),
+                const SizedBox(height: 12),
+                _QuickActionButton(
+                  icon: Icons.folder_open,
+                  label: 'Open Archive',
+                  color: const Color(0xFFF6A00C),
+                  onTap: () {
+                    homeScreenKey.currentState?.pickArchiveFile();
+                  },
+                ),
+                _QuickActionButton(
+                  icon: Icons.compress,
+                  label: 'Compress Files',
+                  color: const Color(0xFF805306),
+                  onTap: () {
+                    homeScreenKey.currentState?.compressFiles();
+                  },
+                ),
+                _QuickActionButton(
+                  icon: Icons.folder_zip,
+                  label: 'Compress Folder',
+                  color: const Color(0xFFFFD500),
+                  onTap: () {
+                    homeScreenKey.currentState?.compressDirectory();
+                  },
+                ),
+                const Spacer(),
                 // Footer
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -193,31 +209,63 @@ class LeftSide extends StatelessWidget {
   }
 }
 
-class _FormatItem extends StatelessWidget {
+class _QuickActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
+  final Color color;
+  final VoidCallback onTap;
 
-  const _FormatItem({
+  const _QuickActionButton({
     required this.icon,
     required this.label,
+    required this.color,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: Colors.grey.shade700),
-          const SizedBox(width: 12),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey.shade700,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: color.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, size: 18, color: color),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade800,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -245,7 +293,7 @@ class RightSide extends StatelessWidget {
               children: [Expanded(child: MoveWindow()), const WindowButtons()],
             ),
           ),
-          const Expanded(child: HomeScreen()),
+          Expanded(child: HomeScreen(key: homeScreenKey)),
         ]),
       ),
     );
