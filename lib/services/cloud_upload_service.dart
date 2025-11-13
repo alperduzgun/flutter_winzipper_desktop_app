@@ -44,12 +44,37 @@ class CloudUploadService {
       } on SocketException catch (e) {
         retries++;
         if (retries >= _maxRetries) {
+          // Provide user-friendly error message
+          if (e.message.contains('Connection refused') ||
+              e.osError?.errorCode == 61 || // macOS connection refused
+              e.osError?.errorCode == 111) {  // Linux connection refused
+            return UploadResult.failure(
+              'Cannot connect to upload service.\n'
+              'Please check:\n'
+              '• Internet connection\n'
+              '• Firewall settings\n'
+              '• VPN configuration',
+            );
+          }
           return UploadResult.failure('Network error: ${e.message}');
         }
         // Exponential backoff: 2s, 4s, 8s
         await Future.delayed(Duration(seconds: 2 << (retries - 1)));
       } on TimeoutException {
         return UploadResult.failure('Upload timeout (exceeded 10 minutes)');
+      } on HttpException catch (e) {
+        // HTTP exceptions (like connection issues)
+        if (e.message.contains('Connection refused') ||
+            e.message.contains('Failed host lookup')) {
+          return UploadResult.failure(
+            'Cannot connect to upload service.\n'
+            'Please check:\n'
+            '• Internet connection\n'
+            '• Firewall settings\n'
+            '• VPN configuration',
+          );
+        }
+        return UploadResult.failure('Network error: ${e.message}');
       } catch (e) {
         return UploadResult.failure('Upload error: ${e.toString()}');
       }

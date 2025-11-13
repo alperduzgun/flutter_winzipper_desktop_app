@@ -60,12 +60,16 @@ class _CloudUploadErrorView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Text(
-            error,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade700,
+          Container(
+            constraints: const BoxConstraints(maxWidth: 350),
+            child: Text(
+              error,
+              textAlign: error.contains('\n') ? TextAlign.left : TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade700,
+                height: 1.5,
+              ),
             ),
           ),
           const SizedBox(height: 24),
