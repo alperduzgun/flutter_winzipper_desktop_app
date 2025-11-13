@@ -15,7 +15,7 @@ class HttpClient {
   BaseOptions get _baseOptions {
     final apiOptions = AppFlavor.instance().apiOptions;
     return BaseOptions(
-      baseURL: apiOptions.baseUrl,
+      baseUrl: apiOptions.baseUrl,
       connectTimeout: apiOptions.timeout,
       receiveTimeout: apiOptions.timeout,
       headers: {

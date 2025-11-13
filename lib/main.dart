@@ -12,6 +12,7 @@ import 'app/app.dart';
 import 'app/bootstrap.dart';
 import 'core/config/api_options.dart';
 import 'core/config/app_flavor.dart';
+import 'core/style/app_theme.dart';
 import 'screens/home_screen.dart';
 
 Future<void> main() async {
@@ -81,7 +82,7 @@ class LeftSide extends StatelessWidget {
         width: 220,
         child: Container(
             decoration: BoxDecoration(
-              color: platformBackgroundColor(context),
+              color: AppTheme.platformBackgroundColor(context),
               border: Border(
                 right: BorderSide(
                   color: Colors.grey.shade300,
