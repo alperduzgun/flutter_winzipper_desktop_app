@@ -541,24 +541,40 @@ class _HomeScreenState extends State<HomeScreen> {
     return SizedBox(
       width: 280,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
           child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Colors.white.withOpacity(0.85),
-                  Colors.white.withOpacity(0.5),
+                  Colors.white.withOpacity(0.75),
+                  Colors.white.withOpacity(0.35),
+                  Colors.white.withOpacity(0.45),
                 ],
+                stops: const [0.0, 0.5, 1.0],
               ),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: Colors.white.withOpacity(0.7),
-                width: 1.5,
+                color: Colors.white.withOpacity(0.9),
+                width: 2,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFF6A00C).withOpacity(0.08),
+                  blurRadius: 60,
+                  spreadRadius: -10,
+                  offset: const Offset(0, 20),
+                ),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 30,
+                  spreadRadius: -5,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -650,50 +666,35 @@ class _HomeScreenState extends State<HomeScreen> {
                   onTap: _compressDirectory,
                 ),
 
-                const SizedBox(height: 20),
+                const Spacer(),
 
-                Divider(
-                  height: 1,
-                  color: Colors.grey.shade200.withOpacity(0.5),
-                  indent: 20,
-                  endIndent: 20,
-                ),
-
-                const SizedBox(height: 12),
-
-                // Supported Formats Section
+                // App info footer
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text(
-                    'SUPPORTED FORMATS',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.grey.shade600,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildFormatChip('ZIP'),
-                      _buildFormatChip('RAR'),
-                      _buildFormatChip('7-Zip'),
-                      _buildFormatChip('TAR'),
-                      _buildFormatChip('GZIP'),
-                      _buildFormatChip('BZIP2'),
+                      Text(
+                        'WinZipper',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade600,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Archive Manager',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey.shade500,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-
-                const Spacer(),
               ],
             ),
           ),
@@ -712,42 +713,63 @@ class _HomeScreenState extends State<HomeScreen> {
       color: Colors.transparent,
       child: InkWell(
         onTap: _isLoading ? null : onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
+        splashColor: color.withOpacity(0.1),
+        highlightColor: color.withOpacity(0.05),
         child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withOpacity(0.5),
+                Colors.white.withOpacity(0.2),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: Colors.white.withOpacity(0.6),
+              width: 1,
+            ),
           ),
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      color.withOpacity(0.15),
-                      color.withOpacity(0.08),
+                      color.withOpacity(0.2),
+                      color.withOpacity(0.1),
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: color.withOpacity(0.2),
-                    width: 1,
+                    color: color.withOpacity(0.3),
+                    width: 1.5,
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withOpacity(0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-                child: Icon(icon, size: 20, color: color),
+                child: Icon(icon, size: 22, color: color),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: Text(
                   title,
                   style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: -0.2,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.3,
                   ),
                 ),
               ),
@@ -765,29 +787,38 @@ class _HomeScreenState extends State<HomeScreen> {
         // Selected archive info
         if (_selectedFilePath != null)
           ClipRRect(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(24),
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
               child: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.white.withOpacity(0.85),
-                      Colors.white.withOpacity(0.5),
+                      Colors.white.withOpacity(0.75),
+                      Colors.white.withOpacity(0.35),
+                      Colors.white.withOpacity(0.45),
                     ],
+                    stops: const [0.0, 0.5, 1.0],
                   ),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.7),
-                    width: 1.5,
+                    color: Colors.white.withOpacity(0.9),
+                    width: 2,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFF6A00C).withOpacity(0.1),
-                      blurRadius: 32,
-                      offset: const Offset(0, 12),
+                      color: const Color(0xFFF6A00C).withOpacity(0.12),
+                      blurRadius: 60,
+                      spreadRadius: -10,
+                      offset: const Offset(0, 20),
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 30,
+                      spreadRadius: -5,
+                      offset: const Offset(0, 10),
                     ),
                   ],
                 ),
@@ -914,41 +945,59 @@ class _HomeScreenState extends State<HomeScreen> {
         // Status message
         if (_statusMessage.isNotEmpty)
           ClipRRect(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
               child: Container(
-                padding: const EdgeInsets.all(18),
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: _isLoading
                         ? [
-                            Colors.blue.shade50.withOpacity(0.9),
-                            Colors.blue.shade50.withOpacity(0.6),
+                            Colors.blue.shade50.withOpacity(0.85),
+                            Colors.blue.shade50.withOpacity(0.5),
+                            Colors.blue.shade100.withOpacity(0.6),
                           ]
                         : _statusMessage.contains('Error') ||
                                 _statusMessage.contains('Failed')
                             ? [
-                                Colors.red.shade50.withOpacity(0.9),
-                                Colors.red.shade50.withOpacity(0.6),
+                                Colors.red.shade50.withOpacity(0.85),
+                                Colors.red.shade50.withOpacity(0.5),
+                                Colors.red.shade100.withOpacity(0.6),
                               ]
                             : [
-                                Colors.green.shade50.withOpacity(0.9),
-                                Colors.green.shade50.withOpacity(0.6),
+                                Colors.green.shade50.withOpacity(0.85),
+                                Colors.green.shade50.withOpacity(0.5),
+                                Colors.green.shade100.withOpacity(0.6),
                               ],
+                    stops: const [0.0, 0.5, 1.0],
                   ),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(18),
                   border: Border.all(
                     color: _isLoading
-                        ? Colors.blue.shade300.withOpacity(0.5)
+                        ? Colors.blue.shade200.withOpacity(0.7)
                         : _statusMessage.contains('Error') ||
                                 _statusMessage.contains('Failed')
-                            ? Colors.red.shade300.withOpacity(0.5)
-                            : Colors.green.shade300.withOpacity(0.5),
-                    width: 1,
+                            ? Colors.red.shade200.withOpacity(0.7)
+                            : Colors.green.shade200.withOpacity(0.7),
+                    width: 1.5,
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: (_isLoading
+                              ? Colors.blue
+                              : _statusMessage.contains('Error') ||
+                                      _statusMessage.contains('Failed')
+                                  ? Colors.red
+                                  : Colors.green)
+                          .withOpacity(0.15),
+                      blurRadius: 30,
+                      spreadRadius: -5,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
                 ),
                 child: Row(
                   children: [
@@ -997,24 +1046,40 @@ class _HomeScreenState extends State<HomeScreen> {
         if (_archiveContents.isNotEmpty)
           Expanded(
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(24),
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
                 child: Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        Colors.white.withOpacity(0.85),
-                        Colors.white.withOpacity(0.5),
+                        Colors.white.withOpacity(0.75),
+                        Colors.white.withOpacity(0.35),
+                        Colors.white.withOpacity(0.45),
                       ],
+                      stops: const [0.0, 0.5, 1.0],
                     ),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(24),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.7),
-                      width: 1.5,
+                      color: Colors.white.withOpacity(0.9),
+                      width: 2,
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFF6A00C).withOpacity(0.08),
+                        blurRadius: 60,
+                        spreadRadius: -10,
+                        offset: const Offset(0, 20),
+                      ),
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 30,
+                        spreadRadius: -5,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
