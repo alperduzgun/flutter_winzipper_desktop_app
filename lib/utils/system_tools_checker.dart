@@ -2,6 +2,39 @@ import 'dart:io';
 
 /// Utility class to check if system tools are available
 class SystemToolsChecker {
+  /// Checks available disk space in bytes for a given path
+  static Future<int> getAvailableDiskSpace(String dirPath) async {
+    try {
+      if (Platform.isMacOS || Platform.isLinux) {
+        final result = await Process.run('df', ['-k', dirPath]);
+        if (result.exitCode == 0) {
+          final lines = result.stdout.toString().split('\n');
+          if (lines.length > 1) {
+            final parts = lines[1].split(RegExp(r'\s+'));
+            if (parts.length > 3) {
+              final availableKB = int.tryParse(parts[3]) ?? 0;
+              return availableKB * 1024; // Convert to bytes
+            }
+          }
+        }
+      } else if (Platform.isWindows) {
+        // Windows: use wmic or fallback
+        final result = await Process.run('wmic', ['logicaldisk', 'get', 'freespace']);
+        if (result.exitCode == 0) {
+          final lines = result.stdout.toString().split('\n');
+          if (lines.length > 1) {
+            final space = int.tryParse(lines[1].trim()) ?? 0;
+            return space;
+          }
+        }
+      }
+    } catch (e) {
+      print('Error checking disk space: $e');
+    }
+    // Return 100GB as fallback if we can't determine
+    return 100 * 1024 * 1024 * 1024;
+  }
+
   /// Checks if a specific command-line tool is available
   static Future<bool> isToolAvailable(String tool) async {
     try {

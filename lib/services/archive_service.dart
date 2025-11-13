@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:path/path.dart' as path;
+import '../utils/system_tools_checker.dart';
 
 enum ArchiveType { zip, tar, gzip, bzip2, sevenZip, rar, unknown }
 
@@ -34,6 +35,25 @@ class ArchiveService {
     String destinationPath,
   ) async {
     try {
+      // Check file size (max 2GB to prevent memory issues)
+      final file = File(archivePath);
+      final fileSize = await file.length();
+      const maxSize = 2 * 1024 * 1024 * 1024; // 2GB
+
+      if (fileSize > maxSize) {
+        print('Archive too large: ${fileSize ~/ (1024 * 1024)}MB. Max: 2GB');
+        return false;
+      }
+
+      // Check disk space (estimate 3x archive size needed)
+      final availableSpace = await SystemToolsChecker.getAvailableDiskSpace(destinationPath);
+      final estimatedNeeded = fileSize * 3;
+
+      if (availableSpace < estimatedNeeded) {
+        print('Insufficient disk space. Need ~${estimatedNeeded ~/ (1024 * 1024)}MB, have ${availableSpace ~/ (1024 * 1024)}MB');
+        return false;
+      }
+
       final archiveType = detectArchiveType(archivePath);
       final bytes = await File(archivePath).readAsBytes();
 
@@ -101,12 +121,40 @@ class ArchiveService {
     Archive archive,
     String destinationPath,
   ) async {
+    int totalExtracted = 0;
+    const maxFiles = 100000; // Prevent zip bomb with too many files
+    int totalSize = 0;
+    const maxTotalSize = 10 * 1024 * 1024 * 1024; // Max 10GB extracted
+
     for (final file in archive) {
-      final filename = path.join(destinationPath, file.name);
+      // Check limits to prevent archive bombs
+      if (totalExtracted >= maxFiles) {
+        print('Warning: Too many files in archive (max $maxFiles)');
+        break;
+      }
+
+      // Prevent path traversal (Zip Slip vulnerability)
+      final filename = path.normalize(path.join(destinationPath, file.name));
+      final canonicalDest = path.canonicalize(destinationPath);
+
+      if (!filename.startsWith(canonicalDest)) {
+        print('Warning: Skipping potentially malicious path: ${file.name}');
+        continue;
+      }
+
       if (file.isFile) {
+        final content = file.content as List<int>;
+        totalSize += content.length;
+
+        if (totalSize > maxTotalSize) {
+          print('Warning: Extracted size exceeded limit (max 10GB)');
+          break;
+        }
+
         final outFile = File(filename);
         await outFile.create(recursive: true);
-        await outFile.writeAsBytes(file.content as List<int>);
+        await outFile.writeAsBytes(content);
+        totalExtracted++;
       } else {
         await Directory(filename).create(recursive: true);
       }
@@ -128,18 +176,31 @@ class ArchiveService {
       List<String> args;
 
       if (type == ArchiveType.sevenZip) {
-        // Use 7z command if available
         command = '7z';
         args = ['x', archivePath, '-o$destinationPath', '-y'];
       } else if (type == ArchiveType.rar) {
-        // Use unrar command if available
         command = 'unrar';
         args = ['x', '-o+', archivePath, destinationPath];
       } else {
         return false;
       }
 
-      final result = await Process.run(command, args);
+      // Run with 5 minute timeout
+      final result = await Process.run(
+        command,
+        args,
+      ).timeout(
+        const Duration(minutes: 5),
+        onTimeout: () {
+          print('Process timeout: $command');
+          return ProcessResult(0, 124, '', 'Timeout');
+        },
+      );
+
+      if (result.exitCode != 0) {
+        print('Process failed: ${result.stderr}');
+      }
+
       return result.exitCode == 0;
     } catch (e) {
       print('Error using system tools: $e');
@@ -274,7 +335,22 @@ class ArchiveService {
         return false;
       }
 
-      final result = await Process.run(command, args);
+      // Run with 10 minute timeout (compression can be slow)
+      final result = await Process.run(
+        command,
+        args,
+      ).timeout(
+        const Duration(minutes: 10),
+        onTimeout: () {
+          print('Compression timeout: $command');
+          return ProcessResult(0, 124, '', 'Timeout');
+        },
+      );
+
+      if (result.exitCode != 0) {
+        print('Compression failed: ${result.stderr}');
+      }
+
       return result.exitCode == 0;
     } catch (e) {
       print('Error using system tools for compression: $e');
