@@ -1,11 +1,13 @@
 import 'dart:io';
 import 'dart:ui';
-import 'package:flutter/material.dart';
+
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
+
+import '../common/constants.dart';
 import '../services/archive_service.dart';
 import '../utils/system_tools_checker.dart';
-import '../common/constants.dart';
 import '../widgets/cloud_upload_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -48,7 +50,8 @@ class _HomeScreenState extends State<HomeScreen> {
           _selectedFilePath = filePath;
           _isLoading = true;
           _statusMessage = 'Loading archive contents...';
-          _currentArchiveType = ArchiveService.detectArchiveType(_selectedFilePath!);
+          _currentArchiveType =
+              ArchiveService.detectArchiveType(_selectedFilePath!);
         });
 
         final contents = await ArchiveService.listArchiveContents(
@@ -97,7 +100,8 @@ class _HomeScreenState extends State<HomeScreen> {
       }
 
       if (requiredTool != null) {
-        final isAvailable = await SystemToolsChecker.isToolAvailable(requiredTool);
+        final isAvailable =
+            await SystemToolsChecker.isToolAvailable(requiredTool);
         if (!isAvailable) {
           _showErrorDialog(
             'Tool Not Found',
@@ -111,7 +115,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (result != null) {
         // Check disk space
-        final availableSpace = await SystemToolsChecker.getAvailableDiskSpace(result);
+        final availableSpace =
+            await SystemToolsChecker.getAvailableDiskSpace(result);
         final estimatedNeeded = fileSize * AppConstants.diskSpaceMultiplier;
 
         if (availableSpace < estimatedNeeded) {
@@ -139,11 +144,13 @@ class _HomeScreenState extends State<HomeScreen> {
         });
 
         if (success) {
-          _showSuccessDialog('Extraction Complete', 'Archive extracted to:\n$result');
+          _showSuccessDialog(
+              'Extraction Complete', 'Archive extracted to:\n$result');
         } else {
           String errorMessage = 'Could not extract the archive.';
           if (requiredTool != null) {
-            errorMessage += '\n\n${SystemToolsChecker.getInstallationInstructions(requiredTool)}';
+            errorMessage +=
+                '\n\n${SystemToolsChecker.getInstallationInstructions(requiredTool)}';
           }
           _showErrorDialog('Extraction Failed', errorMessage);
         }
@@ -153,7 +160,8 @@ class _HomeScreenState extends State<HomeScreen> {
         _isLoading = false;
         _statusMessage = 'Error: ${e.toString()}';
       });
-      _showErrorDialog('Error', 'An unexpected error occurred:\n${e.toString()}');
+      _showErrorDialog(
+          'Error', 'An unexpected error occurred:\n${e.toString()}');
     }
   }
 
@@ -192,7 +200,8 @@ class _HomeScreenState extends State<HomeScreen> {
           }
 
           if (requiredTool != null) {
-            final isAvailable = await SystemToolsChecker.isToolAvailable(requiredTool);
+            final isAvailable =
+                await SystemToolsChecker.isToolAvailable(requiredTool);
             if (!isAvailable) {
               _showErrorDialog(
                 'Tool Not Found',
@@ -204,7 +213,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
           setState(() {
             _isLoading = true;
-            _statusMessage = 'Compressing ${sourcePaths.length} ${sourcePaths.length == 1 ? 'file' : 'files'}...';
+            _statusMessage =
+                'Compressing ${sourcePaths.length} ${sourcePaths.length == 1 ? 'file' : 'files'}...';
           });
 
           final success = await ArchiveService.compressToArchive(
@@ -228,7 +238,8 @@ class _HomeScreenState extends State<HomeScreen> {
           } else {
             String errorMessage = 'Could not create the archive.';
             if (requiredTool != null) {
-              errorMessage += '\n\n${SystemToolsChecker.getInstallationInstructions(requiredTool)}';
+              errorMessage +=
+                  '\n\n${SystemToolsChecker.getInstallationInstructions(requiredTool)}';
             }
             _showErrorDialog('Compression Failed', errorMessage);
           }
@@ -267,7 +278,8 @@ class _HomeScreenState extends State<HomeScreen> {
           }
 
           if (requiredTool != null) {
-            final isAvailable = await SystemToolsChecker.isToolAvailable(requiredTool);
+            final isAvailable =
+                await SystemToolsChecker.isToolAvailable(requiredTool);
             if (!isAvailable) {
               _showErrorDialog(
                 'Tool Not Found',
@@ -303,7 +315,8 @@ class _HomeScreenState extends State<HomeScreen> {
           } else {
             String errorMessage = 'Could not create the archive.';
             if (requiredTool != null) {
-              errorMessage += '\n\n${SystemToolsChecker.getInstallationInstructions(requiredTool)}';
+              errorMessage +=
+                  '\n\n${SystemToolsChecker.getInstallationInstructions(requiredTool)}';
             }
             _showErrorDialog('Compression Failed', errorMessage);
           }
@@ -345,15 +358,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 suffixIcon: PopupMenuButton<String>(
                   icon: const Icon(Icons.arrow_drop_down),
                   onSelected: (String value) {
-                    final baseName = path.basenameWithoutExtension(controller.text);
+                    final baseName =
+                        path.basenameWithoutExtension(controller.text);
                     controller.text = '$baseName$value';
                   },
-                  itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                    const PopupMenuItem<String>(value: '.zip', child: Text('.zip')),
-                    const PopupMenuItem<String>(value: '.tar', child: Text('.tar')),
-                    const PopupMenuItem<String>(value: '.tar.gz', child: Text('.tar.gz')),
-                    const PopupMenuItem<String>(value: '.tar.bz2', child: Text('.tar.bz2')),
-                    const PopupMenuItem<String>(value: '.7z', child: Text('.7z (requires 7z)')),
+                  itemBuilder: (BuildContext context) =>
+                      <PopupMenuEntry<String>>[
+                    const PopupMenuItem<String>(
+                        value: '.zip', child: Text('.zip')),
+                    const PopupMenuItem<String>(
+                        value: '.tar', child: Text('.tar')),
+                    const PopupMenuItem<String>(
+                        value: '.tar.gz', child: Text('.tar.gz')),
+                    const PopupMenuItem<String>(
+                        value: '.tar.bz2', child: Text('.tar.bz2')),
+                    const PopupMenuItem<String>(
+                        value: '.7z', child: Text('.7z (requires 7z)')),
                   ],
                 ),
               ),
@@ -745,387 +765,399 @@ class _HomeScreenState extends State<HomeScreen> {
         // Selected archive info
         if (_selectedFilePath != null)
           ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Colors.white.withOpacity(0.85),
-                          Colors.white.withOpacity(0.5),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.7),
-                        width: 1.5,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFF6A00C).withOpacity(0.1),
-                          blurRadius: 32,
-                          offset: const Offset(0, 12),
-                        ),
-                      ],
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(14),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      const Color(0xFFF6A00C).withOpacity(0.15),
-                                      const Color(0xFFF6A00C).withOpacity(0.08),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(
-                                    color: const Color(0xFFF6A00C).withOpacity(0.3),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.archive,
-                                  color: Color(0xFFF6A00C),
-                                  size: 36,
-                                ),
-                              ),
-                              const SizedBox(width: 18),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      path.basename(_selectedFilePath!),
-                                      style: const TextStyle(
-                                        fontSize: 19,
-                                        fontWeight: FontWeight.w600,
-                                        letterSpacing: -0.4,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      _getArchiveTypeLabel(),
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.grey.shade700,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade100.withOpacity(0.5),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: IconButton(
-                                  icon: const Icon(Icons.close),
-                                  onPressed: _clearSelection,
-                                  tooltip: 'Clear selection',
-                                  iconSize: 20,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-                          Text(
-                            _selectedFilePath!,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
-                              fontWeight: FontWeight.w400,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 20),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  onPressed: _isLoading ? null : _extractArchive,
-                                  icon: const Icon(Icons.unarchive, size: 20),
-                                  label: const Text(
-                                    'Extract Archive',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
-                                      letterSpacing: -0.2,
-                                    ),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFFF6A00C),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
-                                    elevation: 0,
-                                    shadowColor: const Color(0xFFF6A00C).withOpacity(0.4),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
+            borderRadius: BorderRadius.circular(20),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withOpacity(0.85),
+                      Colors.white.withOpacity(0.5),
+                    ],
                   ),
-                ),
-              ),
-
-            const SizedBox(height: 16),
-
-            // Status message
-            if (_statusMessage.isNotEmpty)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                  child: Container(
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: _isLoading
-                            ? [
-                                Colors.blue.shade50.withOpacity(0.9),
-                                Colors.blue.shade50.withOpacity(0.6),
-                              ]
-                            : _statusMessage.contains('Error') || _statusMessage.contains('Failed')
-                                ? [
-                                    Colors.red.shade50.withOpacity(0.9),
-                                    Colors.red.shade50.withOpacity(0.6),
-                                  ]
-                                : [
-                                    Colors.green.shade50.withOpacity(0.9),
-                                    Colors.green.shade50.withOpacity(0.6),
-                                  ],
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: _isLoading
-                            ? Colors.blue.shade300.withOpacity(0.5)
-                            : _statusMessage.contains('Error') || _statusMessage.contains('Failed')
-                                ? Colors.red.shade300.withOpacity(0.5)
-                                : Colors.green.shade300.withOpacity(0.5),
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        if (_isLoading)
-                          SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade600),
-                            ),
-                          )
-                        else
-                          Icon(
-                            _statusMessage.contains('Error') || _statusMessage.contains('Failed')
-                                ? Icons.error_outline
-                                : Icons.check_circle_outline,
-                            size: 20,
-                            color: _statusMessage.contains('Error') || _statusMessage.contains('Failed')
-                                ? Colors.red.shade700
-                                : Colors.green.shade700,
-                          ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Text(
-                            _statusMessage,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.grey.shade800,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-            const SizedBox(height: 16),
-
-            // Archive contents
-            if (_archiveContents.isNotEmpty)
-              Expanded(
-                child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Colors.white.withOpacity(0.85),
-                            Colors.white.withOpacity(0.5),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.7),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.7),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFF6A00C).withOpacity(0.1),
+                      blurRadius: 32,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(20.0),
+                            padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                                 colors: [
-                                  Colors.grey.shade50.withOpacity(0.9),
-                                  Colors.grey.shade50.withOpacity(0.4),
+                                  const Color(0xFFF6A00C).withOpacity(0.15),
+                                  const Color(0xFFF6A00C).withOpacity(0.08),
                                 ],
                               ),
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(20),
-                                topRight: Radius.circular(20),
-                              ),
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: Colors.grey.shade200.withOpacity(0.5),
-                                  width: 1,
-                                ),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: const Color(0xFFF6A00C).withOpacity(0.3),
+                                width: 1,
                               ),
                             ),
-                            child: Row(
+                            child: const Icon(
+                              Icons.archive,
+                              color: Color(0xFFF6A00C),
+                              size: 36,
+                            ),
+                          ),
+                          const SizedBox(width: 18),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.6),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Icon(Icons.list, size: 20),
-                                ),
-                                const SizedBox(width: 12),
-                                const Text(
-                                  'Archive Contents',
-                                  style: TextStyle(
-                                    fontSize: 16,
+                                Text(
+                                  path.basename(_selectedFilePath!),
+                                  style: const TextStyle(
+                                    fontSize: 19,
                                     fontWeight: FontWeight.w600,
-                                    letterSpacing: -0.3,
+                                    letterSpacing: -0.4,
                                   ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                const Spacer(),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: [
-                                        const Color(0xFFF6A00C),
-                                        const Color(0xFFF6A00C).withOpacity(0.8),
-                                      ],
-                                    ),
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: const Color(0xFFF6A00C).withOpacity(0.3),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Text(
-                                    '${_archiveContents.length} ${_archiveContents.length == 1 ? 'item' : 'items'}',
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                      letterSpacing: 0.2,
-                                    ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  _getArchiveTypeLabel(),
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey.shade700,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          Expanded(
-                            child: ListView.separated(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              itemCount: _archiveContents.length,
-                              separatorBuilder: (context, index) => Divider(
-                                height: 1,
-                                indent: 16,
-                                endIndent: 16,
-                                color: Colors.grey.shade200.withOpacity(0.5),
-                              ),
-                              itemBuilder: (context, index) {
-                                final item = _archiveContents[index];
-                                final isFolder = item.endsWith('/');
-                                return ListTile(
-                                  dense: true,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                    vertical: 4,
-                                  ),
-                                  leading: Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: isFolder
-                                          ? const Color(0xFFF6A00C).withOpacity(0.1)
-                                          : Colors.grey.shade100.withOpacity(0.6),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Icon(
-                                      isFolder ? Icons.folder : Icons.insert_drive_file,
-                                      color: isFolder
-                                          ? const Color(0xFFF6A00C)
-                                          : Colors.grey.shade600,
-                                      size: 20,
-                                    ),
-                                  ),
-                                  title: Text(
-                                    item,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.grey.shade800,
-                                    ),
-                                  ),
-                                );
-                              },
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100.withOpacity(0.5),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: _clearSelection,
+                              tooltip: 'Clear selection',
+                              iconSize: 20,
                             ),
                           ),
                         ],
                       ),
-                    ),
+                      const SizedBox(height: 14),
+                      Text(
+                        _selectedFilePath!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _isLoading ? null : _extractArchive,
+                              icon: const Icon(Icons.unarchive, size: 20),
+                              label: const Text(
+                                'Extract Archive',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFF6A00C),
+                                foregroundColor: Colors.white,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
+                                elevation: 0,
+                                shadowColor:
+                                    const Color(0xFFF6A00C).withOpacity(0.4),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ),
+            ),
+          ),
+
+        const SizedBox(height: 16),
+
+        // Status message
+        if (_statusMessage.isNotEmpty)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+              child: Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: _isLoading
+                        ? [
+                            Colors.blue.shade50.withOpacity(0.9),
+                            Colors.blue.shade50.withOpacity(0.6),
+                          ]
+                        : _statusMessage.contains('Error') ||
+                                _statusMessage.contains('Failed')
+                            ? [
+                                Colors.red.shade50.withOpacity(0.9),
+                                Colors.red.shade50.withOpacity(0.6),
+                              ]
+                            : [
+                                Colors.green.shade50.withOpacity(0.9),
+                                Colors.green.shade50.withOpacity(0.6),
+                              ],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: _isLoading
+                        ? Colors.blue.shade300.withOpacity(0.5)
+                        : _statusMessage.contains('Error') ||
+                                _statusMessage.contains('Failed')
+                            ? Colors.red.shade300.withOpacity(0.5)
+                            : Colors.green.shade300.withOpacity(0.5),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    if (_isLoading)
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.blue.shade600),
+                        ),
+                      )
+                    else
+                      Icon(
+                        _statusMessage.contains('Error') ||
+                                _statusMessage.contains('Failed')
+                            ? Icons.error_outline
+                            : Icons.check_circle_outline,
+                        size: 20,
+                        color: _statusMessage.contains('Error') ||
+                                _statusMessage.contains('Failed')
+                            ? Colors.red.shade700
+                            : Colors.green.shade700,
+                      ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text(
+                        _statusMessage,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+        const SizedBox(height: 16),
+
+        // Archive contents
+        if (_archiveContents.isNotEmpty)
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white.withOpacity(0.85),
+                        Colors.white.withOpacity(0.5),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.7),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(20.0),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Colors.grey.shade50.withOpacity(0.9),
+                              Colors.grey.shade50.withOpacity(0.4),
+                            ],
+                          ),
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(20),
+                            topRight: Radius.circular(20),
+                          ),
+                          border: Border(
+                            bottom: BorderSide(
+                              color: Colors.grey.shade200.withOpacity(0.5),
+                              width: 1,
+                            ),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.6),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.list, size: 20),
+                            ),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'Archive Contents',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                            const Spacer(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    const Color(0xFFF6A00C),
+                                    const Color(0xFFF6A00C).withOpacity(0.8),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFFF6A00C)
+                                        .withOpacity(0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Text(
+                                '${_archiveContents.length} ${_archiveContents.length == 1 ? 'item' : 'items'}',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: ListView.separated(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          itemCount: _archiveContents.length,
+                          separatorBuilder: (context, index) => Divider(
+                            height: 1,
+                            indent: 16,
+                            endIndent: 16,
+                            color: Colors.grey.shade200.withOpacity(0.5),
+                          ),
+                          itemBuilder: (context, index) {
+                            final item = _archiveContents[index];
+                            final isFolder = item.endsWith('/');
+                            return ListTile(
+                              dense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 4,
+                              ),
+                              leading: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: isFolder
+                                      ? const Color(0xFFF6A00C).withOpacity(0.1)
+                                      : Colors.grey.shade100.withOpacity(0.6),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  isFolder
+                                      ? Icons.folder
+                                      : Icons.insert_drive_file,
+                                  color: isFolder
+                                      ? const Color(0xFFF6A00C)
+                                      : Colors.grey.shade600,
+                                  size: 20,
+                                ),
+                              ),
+                              title: Text(
+                                item,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.grey.shade800,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
 
         // Empty state
-        if (_archiveContents.isEmpty && _selectedFilePath == null && !_isLoading)
+        if (_archiveContents.isEmpty &&
+            _selectedFilePath == null &&
+            !_isLoading)
           Expanded(
             child: Center(
               child: Column(
@@ -1177,9 +1209,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 

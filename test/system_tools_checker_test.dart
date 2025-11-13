@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:winzipper/utils/system_tools_checker.dart';
 
@@ -16,7 +15,7 @@ void main() {
         final instructions =
             SystemToolsChecker.getInstallationInstructions('7z');
         expect(instructions, isNotEmpty);
-        expect(instructions.toLowerCase(), contains('7z').or(contains('p7zip')));
+        expect(instructions.toLowerCase(), contains('7z'));
       });
 
       test('should provide instructions for rar', () {

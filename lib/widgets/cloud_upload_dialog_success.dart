@@ -152,7 +152,8 @@ class _CloudUploadSuccessViewState extends State<_CloudUploadSuccessView> {
                     ),
                     onPressed: _copyToClipboard,
                     tooltip: _copied ? 'Copied!' : 'Copy link',
-                    color: _copied ? Colors.green.shade700 : Colors.grey.shade700,
+                    color:
+                        _copied ? Colors.green.shade700 : Colors.grey.shade700,
                     padding: const EdgeInsets.all(8),
                     constraints: const BoxConstraints(),
                   ),
@@ -237,8 +238,6 @@ class _CloudUploadSuccessViewState extends State<_CloudUploadSuccessView> {
                 ),
               ],
             ),
-          ),
-            ],
           ),
         ],
       ),
