@@ -126,31 +126,15 @@ class LeftSide extends StatelessWidget {
                   ),
                 ),
                 const Divider(),
-                // Navigation Menu
+                // Supported formats info
                 Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    children: [
-                      _SidebarItem(
-                        icon: Icons.archive,
-                        label: 'Archives',
-                        isSelected: true,
-                      ),
-                      _SidebarItem(
-                        icon: Icons.history,
-                        label: 'Recent',
-                        isSelected: false,
-                      ),
-                      _SidebarItem(
-                        icon: Icons.star_outline,
-                        label: 'Favorites',
-                        isSelected: false,
-                      ),
-                      const SizedBox(height: 8),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        child: Text(
-                          'FORMATS',
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'SUPPORTED FORMATS',
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
@@ -158,14 +142,15 @@ class LeftSide extends StatelessWidget {
                             letterSpacing: 0.5,
                           ),
                         ),
-                      ),
-                      _FormatItem(icon: '📦', label: 'ZIP'),
-                      _FormatItem(icon: '📚', label: 'RAR'),
-                      _FormatItem(icon: '🗜️', label: '7-Zip'),
-                      _FormatItem(icon: '📄', label: 'TAR'),
-                      _FormatItem(icon: '💾', label: 'GZIP'),
-                      _FormatItem(icon: '📊', label: 'BZIP2'),
-                    ],
+                        const SizedBox(height: 16),
+                        _FormatItem(icon: '📦', label: 'ZIP'),
+                        _FormatItem(icon: '📚', label: 'RAR'),
+                        _FormatItem(icon: '🗜️', label: '7-Zip'),
+                        _FormatItem(icon: '📄', label: 'TAR'),
+                        _FormatItem(icon: '💾', label: 'GZIP'),
+                        _FormatItem(icon: '📊', label: 'BZIP2'),
+                      ],
+                    ),
                   ),
                 ),
                 // Footer
@@ -198,46 +183,6 @@ class LeftSide extends StatelessWidget {
                 ),
               ],
             )));
-  }
-}
-
-class _SidebarItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool isSelected;
-
-  const _SidebarItem({
-    required this.icon,
-    required this.label,
-    this.isSelected = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 2),
-      decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFFF6A00C).withOpacity(0.1) : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: ListTile(
-        dense: true,
-        leading: Icon(
-          icon,
-          size: 20,
-          color: isSelected ? const Color(0xFFF6A00C) : Colors.grey.shade600,
-        ),
-        title: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-            color: isSelected ? const Color(0xFF805306) : Colors.grey.shade700,
-          ),
-        ),
-        onTap: () {},
-      ),
-    );
   }
 }
 

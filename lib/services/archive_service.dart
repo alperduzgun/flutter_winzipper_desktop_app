@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:path/path.dart' as path;
 import '../utils/system_tools_checker.dart';
+import '../common/constants.dart';
 
 enum ArchiveType { zip, tar, gzip, bzip2, sevenZip, rar, unknown }
 
@@ -35,22 +36,21 @@ class ArchiveService {
     String destinationPath,
   ) async {
     try {
-      // Check file size (max 2GB to prevent memory issues)
+      // Check file size to prevent memory issues
       final file = File(archivePath);
       final fileSize = await file.length();
-      const maxSize = 2 * 1024 * 1024 * 1024; // 2GB
 
-      if (fileSize > maxSize) {
-        print('Archive too large: ${fileSize ~/ (1024 * 1024)}MB. Max: 2GB');
+      if (fileSize > AppConstants.maxArchiveSizeBytes) {
+        print('Archive too large: ${AppConstants.formatBytes(fileSize)}. Max: ${AppConstants.formatBytes(AppConstants.maxArchiveSizeBytes)}');
         return false;
       }
 
-      // Check disk space (estimate 3x archive size needed)
+      // Check disk space
       final availableSpace = await SystemToolsChecker.getAvailableDiskSpace(destinationPath);
-      final estimatedNeeded = fileSize * 3;
+      final estimatedNeeded = fileSize * AppConstants.diskSpaceMultiplier;
 
       if (availableSpace < estimatedNeeded) {
-        print('Insufficient disk space. Need ~${estimatedNeeded ~/ (1024 * 1024)}MB, have ${availableSpace ~/ (1024 * 1024)}MB');
+        print('Insufficient disk space. Need ~${AppConstants.formatBytes(estimatedNeeded)}, have ${AppConstants.formatBytes(availableSpace)}');
         return false;
       }
 
@@ -122,14 +122,12 @@ class ArchiveService {
     String destinationPath,
   ) async {
     int totalExtracted = 0;
-    const maxFiles = 100000; // Prevent zip bomb with too many files
     int totalSize = 0;
-    const maxTotalSize = 10 * 1024 * 1024 * 1024; // Max 10GB extracted
 
     for (final file in archive) {
       // Check limits to prevent archive bombs
-      if (totalExtracted >= maxFiles) {
-        print('Warning: Too many files in archive (max $maxFiles)');
+      if (totalExtracted >= AppConstants.maxFilesInArchive) {
+        print('Warning: Too many files in archive (max ${AppConstants.maxFilesInArchive})');
         break;
       }
 
@@ -146,8 +144,8 @@ class ArchiveService {
         final content = file.content as List<int>;
         totalSize += content.length;
 
-        if (totalSize > maxTotalSize) {
-          print('Warning: Extracted size exceeded limit (max 10GB)');
+        if (totalSize > AppConstants.maxExtractedSizeBytes) {
+          print('Warning: Extracted size exceeded limit (max ${AppConstants.formatSize(AppConstants.maxExtractedSizeBytes)})');
           break;
         }
 
@@ -185,12 +183,12 @@ class ArchiveService {
         return false;
       }
 
-      // Run with 5 minute timeout
+      // Run with timeout
       final result = await Process.run(
         command,
         args,
       ).timeout(
-        const Duration(minutes: 5),
+        AppConstants.extractTimeout,
         onTimeout: () {
           print('Process timeout: $command');
           return ProcessResult(0, 124, '', 'Timeout');
@@ -335,12 +333,12 @@ class ArchiveService {
         return false;
       }
 
-      // Run with 10 minute timeout (compression can be slow)
+      // Run with timeout (compression can be slow)
       final result = await Process.run(
         command,
         args,
       ).timeout(
-        const Duration(minutes: 10),
+        AppConstants.compressTimeout,
         onTimeout: () {
           print('Compression timeout: $command');
           return ProcessResult(0, 124, '', 'Timeout');
@@ -361,13 +359,12 @@ class ArchiveService {
   /// Lists the contents of an archive
   static Future<List<String>> listArchiveContents(String archivePath) async {
     try {
-      // Check file size (same 2GB limit)
+      // Check file size
       final file = File(archivePath);
       final fileSize = await file.length();
-      const maxSize = 2 * 1024 * 1024 * 1024; // 2GB
 
-      if (fileSize > maxSize) {
-        print('Archive too large to list: ${fileSize ~/ (1024 * 1024)}MB');
+      if (fileSize > AppConstants.maxArchiveSizeBytes) {
+        print('Archive too large to list: ${AppConstants.formatBytes(fileSize)}');
         return [];
       }
 

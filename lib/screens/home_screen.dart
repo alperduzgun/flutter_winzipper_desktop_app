@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as path;
 import '../services/archive_service.dart';
 import '../utils/system_tools_checker.dart';
+import '../common/constants.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -32,12 +33,11 @@ class _HomeScreenState extends State<HomeScreen> {
         // Check file size before loading
         final file = File(filePath);
         final fileSize = await file.length();
-        const maxSize = 2 * 1024 * 1024 * 1024; // 2GB
 
-        if (fileSize > maxSize) {
+        if (fileSize > AppConstants.maxArchiveSizeBytes) {
           _showErrorDialog(
             'Archive Too Large',
-            'Archive size: ${fileSize ~/ (1024 * 1024)}MB\nMaximum supported: 2GB\n\nCannot preview large archives.',
+            'Archive size: ${AppConstants.formatBytes(fileSize)}\nMaximum supported: ${AppConstants.formatBytes(AppConstants.maxArchiveSizeBytes)}\n\nCannot preview large archives.',
           );
           return;
         }
@@ -76,13 +76,12 @@ class _HomeScreenState extends State<HomeScreen> {
       // Pre-flight checks
       final file = File(_selectedFilePath!);
       final fileSize = await file.length();
-      const maxSize = 2 * 1024 * 1024 * 1024; // 2GB
 
       // Check file size
-      if (fileSize > maxSize) {
+      if (fileSize > AppConstants.maxArchiveSizeBytes) {
         _showErrorDialog(
           'Archive Too Large',
-          'Archive size: ${fileSize ~/ (1024 * 1024)}MB\nMaximum supported: 2GB\n\nLarge archives may cause memory issues.',
+          'Archive size: ${AppConstants.formatBytes(fileSize)}\nMaximum supported: ${AppConstants.formatBytes(AppConstants.maxArchiveSizeBytes)}\n\nLarge archives may cause memory issues.',
         );
         return;
       }
@@ -111,12 +110,12 @@ class _HomeScreenState extends State<HomeScreen> {
       if (result != null) {
         // Check disk space
         final availableSpace = await SystemToolsChecker.getAvailableDiskSpace(result);
-        final estimatedNeeded = fileSize * 3;
+        final estimatedNeeded = fileSize * AppConstants.diskSpaceMultiplier;
 
         if (availableSpace < estimatedNeeded) {
           _showErrorDialog(
             'Insufficient Disk Space',
-            'Required: ~${estimatedNeeded ~/ (1024 * 1024)}MB\nAvailable: ${availableSpace ~/ (1024 * 1024)}MB\n\nPlease free up disk space or choose another location.',
+            'Required: ~${AppConstants.formatBytes(estimatedNeeded)}\nAvailable: ${AppConstants.formatBytes(availableSpace)}\n\nPlease free up disk space or choose another location.',
           );
           return;
         }
