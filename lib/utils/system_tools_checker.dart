@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../common/constants.dart';
 
 /// Utility class to check if system tools are available
 class SystemToolsChecker {
@@ -54,9 +55,9 @@ class SystemToolsChecker {
   /// Checks all required tools and returns their availability status
   static Future<Map<String, bool>> checkAllTools() async {
     return {
-      'unrar': await isToolAvailable('unrar'),
-      '7z': await isToolAvailable('7z'),
-      'rar': await isToolAvailable('rar'),
+      AppConstants.toolUnrar: await isToolAvailable(AppConstants.toolUnrar),
+      AppConstants.tool7zip: await isToolAvailable(AppConstants.tool7zip),
+      AppConstants.toolRar: await isToolAvailable(AppConstants.toolRar),
     };
   }
 
@@ -64,32 +65,32 @@ class SystemToolsChecker {
   static String getInstallationInstructions(String tool) {
     if (Platform.isMacOS) {
       switch (tool) {
-        case 'unrar':
+        case AppConstants.toolUnrar:
           return 'Install via Homebrew:\nbrew install unrar';
-        case '7z':
+        case AppConstants.tool7zip:
           return 'Install via Homebrew:\nbrew install p7zip';
-        case 'rar':
+        case AppConstants.toolRar:
           return 'Install via Homebrew:\nbrew install rar';
         default:
           return 'Tool not found. Please install it manually.';
       }
     } else if (Platform.isLinux) {
       switch (tool) {
-        case 'unrar':
+        case AppConstants.toolUnrar:
           return 'Install via package manager:\nsudo apt install unrar  # Debian/Ubuntu\nsudo dnf install unrar  # Fedora\nsudo pacman -S unrar    # Arch';
-        case '7z':
+        case AppConstants.tool7zip:
           return 'Install via package manager:\nsudo apt install p7zip-full  # Debian/Ubuntu\nsudo dnf install p7zip       # Fedora\nsudo pacman -S p7zip         # Arch';
-        case 'rar':
+        case AppConstants.toolRar:
           return 'Install via package manager:\nsudo apt install rar  # Debian/Ubuntu\nsudo dnf install rar  # Fedora';
         default:
           return 'Tool not found. Please install it via your package manager.';
       }
     } else if (Platform.isWindows) {
       switch (tool) {
-        case 'unrar':
-        case 'rar':
+        case AppConstants.toolUnrar:
+        case AppConstants.toolRar:
           return 'Download and install WinRAR from:\nhttps://www.rarlab.com/download.htm';
-        case '7z':
+        case AppConstants.tool7zip:
           return 'Download and install 7-Zip from:\nhttps://www.7-zip.org/download.html';
         default:
           return 'Tool not found. Please install it manually.';
@@ -107,10 +108,10 @@ class SystemToolsChecker {
   static Future<bool> canHandleArchiveType(String archiveType) async {
     switch (archiveType.toLowerCase()) {
       case 'rar':
-        return await isToolAvailable('unrar');
+        return await isToolAvailable(AppConstants.toolUnrar);
       case '7z':
       case 'sevenzip':
-        return await isToolAvailable('7z');
+        return await isToolAvailable(AppConstants.tool7zip);
       case 'zip':
       case 'tar':
       case 'gz':

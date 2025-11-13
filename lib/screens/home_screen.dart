@@ -89,9 +89,9 @@ class _HomeScreenState extends State<HomeScreen> {
       // Check if required tools are available for this archive type
       String? requiredTool;
       if (_currentArchiveType == ArchiveType.rar) {
-        requiredTool = 'unrar';
+        requiredTool = AppConstants.toolUnrar;
       } else if (_currentArchiveType == ArchiveType.sevenZip) {
-        requiredTool = '7z';
+        requiredTool = AppConstants.tool7zip;
       }
 
       if (requiredTool != null) {
@@ -184,9 +184,9 @@ class _HomeScreenState extends State<HomeScreen> {
           final archiveType = ArchiveService.detectArchiveType(saveResult);
           String? requiredTool;
           if (archiveType == ArchiveType.rar) {
-            requiredTool = 'rar';
+            requiredTool = AppConstants.toolRar;
           } else if (archiveType == ArchiveType.sevenZip) {
-            requiredTool = '7z';
+            requiredTool = AppConstants.tool7zip;
           }
 
           if (requiredTool != null) {
@@ -255,9 +255,9 @@ class _HomeScreenState extends State<HomeScreen> {
           final archiveType = ArchiveService.detectArchiveType(saveResult);
           String? requiredTool;
           if (archiveType == ArchiveType.rar) {
-            requiredTool = 'rar';
+            requiredTool = AppConstants.toolRar;
           } else if (archiveType == ArchiveType.sevenZip) {
-            requiredTool = '7z';
+            requiredTool = AppConstants.tool7zip;
           }
 
           if (requiredTool != null) {

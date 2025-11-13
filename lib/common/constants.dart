@@ -11,6 +11,12 @@ class AppConstants {
   // Process timeouts
   static const Duration extractTimeout = Duration(minutes: 5);
   static const Duration compressTimeout = Duration(minutes: 10);
+  static const Duration listTimeout = Duration(seconds: 30);
+
+  // System tools
+  static const String tool7zip = '7z';
+  static const String toolUnrar = 'unrar';
+  static const String toolRar = 'rar';
 
   // Display helpers
   static String formatBytes(int bytes) {

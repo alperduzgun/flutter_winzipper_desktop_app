@@ -174,10 +174,10 @@ class ArchiveService {
       List<String> args;
 
       if (type == ArchiveType.sevenZip) {
-        command = '7z';
+        command = AppConstants.tool7zip;
         args = ['x', archivePath, '-o$destinationPath', '-y'];
       } else if (type == ArchiveType.rar) {
-        command = 'unrar';
+        command = AppConstants.toolUnrar;
         args = ['x', '-o+', archivePath, destinationPath];
       } else {
         return false;
@@ -324,10 +324,10 @@ class ArchiveService {
       List<String> args;
 
       if (type == ArchiveType.sevenZip) {
-        command = '7z';
+        command = AppConstants.tool7zip;
         args = ['a', destinationArchivePath, ...sourcePaths];
       } else if (type == ArchiveType.rar) {
-        command = 'rar';
+        command = AppConstants.toolRar;
         args = ['a', destinationArchivePath, ...sourcePaths];
       } else {
         return false;
@@ -426,23 +426,45 @@ class ArchiveService {
       List<String> args;
 
       if (type == ArchiveType.sevenZip) {
-        command = '7z';
-        args = ['l', archivePath];
+        command = AppConstants.tool7zip;
+        // Use -slt flag for structured output with "Path = filename" format
+        args = ['l', '-slt', archivePath];
       } else if (type == ArchiveType.rar) {
-        command = 'unrar';
-        args = ['l', archivePath];
+        command = AppConstants.toolUnrar;
+        // Use 'lb' for bare list (filenames only, no headers/footers)
+        args = ['lb', archivePath];
       } else {
         return [];
       }
 
-      final result = await Process.run(command, args);
+      final result = await Process.run(
+        command,
+        args,
+      ).timeout(
+        AppConstants.listTimeout,
+        onTimeout: () {
+          print('List timeout: $command');
+          return ProcessResult(0, 124, '', 'Timeout');
+        },
+      );
+
       if (result.exitCode == 0) {
-        // Parse the output to extract file names
         final lines = result.stdout.toString().split('\n');
-        return lines
-            .where((line) => line.trim().isNotEmpty)
-            .map((line) => line.trim())
-            .toList();
+
+        if (type == ArchiveType.sevenZip) {
+          // Parse 7z -slt output: look for "Path = filename" lines
+          return lines
+              .where((line) => line.startsWith('Path = '))
+              .map((line) => line.substring(7).trim())
+              .where((name) => name.isNotEmpty)
+              .toList();
+        } else {
+          // unrar lb gives bare filenames (one per line)
+          return lines
+              .map((line) => line.trim())
+              .where((line) => line.isNotEmpty)
+              .toList();
+        }
       }
       return [];
     } catch (e) {
