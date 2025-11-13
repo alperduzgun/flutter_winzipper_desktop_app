@@ -27,8 +27,23 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
       if (result != null && result.files.single.path != null) {
+        final filePath = result.files.single.path!;
+
+        // Check file size before loading
+        final file = File(filePath);
+        final fileSize = await file.length();
+        const maxSize = 2 * 1024 * 1024 * 1024; // 2GB
+
+        if (fileSize > maxSize) {
+          _showErrorDialog(
+            'Archive Too Large',
+            'Archive size: ${fileSize ~/ (1024 * 1024)}MB\nMaximum supported: 2GB\n\nCannot preview large archives.',
+          );
+          return;
+        }
+
         setState(() {
-          _selectedFilePath = result.files.single.path;
+          _selectedFilePath = filePath;
           _isLoading = true;
           _statusMessage = 'Loading archive contents...';
           _currentArchiveType = ArchiveService.detectArchiveType(_selectedFilePath!);
@@ -42,7 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _archiveContents = contents;
           _isLoading = false;
           _statusMessage = contents.isEmpty
-              ? 'No files found in archive'
+              ? 'Archive is empty or too large to preview'
               : '${contents.length} ${contents.length == 1 ? 'item' : 'items'} found';
         });
       }
@@ -58,6 +73,20 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_selectedFilePath == null) return;
 
     try {
+      // Pre-flight checks
+      final file = File(_selectedFilePath!);
+      final fileSize = await file.length();
+      const maxSize = 2 * 1024 * 1024 * 1024; // 2GB
+
+      // Check file size
+      if (fileSize > maxSize) {
+        _showErrorDialog(
+          'Archive Too Large',
+          'Archive size: ${fileSize ~/ (1024 * 1024)}MB\nMaximum supported: 2GB\n\nLarge archives may cause memory issues.',
+        );
+        return;
+      }
+
       // Check if required tools are available for this archive type
       String? requiredTool;
       if (_currentArchiveType == ArchiveType.rar) {
@@ -80,6 +109,17 @@ class _HomeScreenState extends State<HomeScreen> {
       final result = await FilePicker.platform.getDirectoryPath();
 
       if (result != null) {
+        // Check disk space
+        final availableSpace = await SystemToolsChecker.getAvailableDiskSpace(result);
+        final estimatedNeeded = fileSize * 3;
+
+        if (availableSpace < estimatedNeeded) {
+          _showErrorDialog(
+            'Insufficient Disk Space',
+            'Required: ~${estimatedNeeded ~/ (1024 * 1024)}MB\nAvailable: ${availableSpace ~/ (1024 * 1024)}MB\n\nPlease free up disk space or choose another location.',
+          );
+          return;
+        }
         setState(() {
           _isLoading = true;
           _statusMessage = 'Extracting archive...';

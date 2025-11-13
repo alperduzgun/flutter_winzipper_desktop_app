@@ -361,6 +361,16 @@ class ArchiveService {
   /// Lists the contents of an archive
   static Future<List<String>> listArchiveContents(String archivePath) async {
     try {
+      // Check file size (same 2GB limit)
+      final file = File(archivePath);
+      final fileSize = await file.length();
+      const maxSize = 2 * 1024 * 1024 * 1024; // 2GB
+
+      if (fileSize > maxSize) {
+        print('Archive too large to list: ${fileSize ~/ (1024 * 1024)}MB');
+        return [];
+      }
+
       final archiveType = detectArchiveType(archivePath);
       final bytes = await File(archivePath).readAsBytes();
 

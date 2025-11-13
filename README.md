@@ -127,20 +127,23 @@ The application is built using:
 
 ```
 lib/
-├── main.dart                 # Application entry point
+├── main.dart                    # Application entry point
 ├── screens/
-│   └── home_screen.dart      # Main UI screen
+│   └── home_screen.dart         # Main UI screen
 ├── services/
-│   └── archive_service.dart  # Archive operations service
+│   └── archive_service.dart     # Archive operations service
+├── utils/
+│   └── system_tools_checker.dart # System validation utilities
 └── common/
     └── theme/
-        └── theme.dart        # Theme configuration
+        └── theme.dart           # Theme configuration
 ```
 
 ### Key Components
 
-- **ArchiveService**: Handles all archive operations (extract, compress, list)
-- **HomeScreen**: Main user interface with file selection and operations
+- **ArchiveService**: Handles all archive operations (extract, compress, list) with security validations
+- **SystemToolsChecker**: Validates system tools availability and disk space
+- **HomeScreen**: Main user interface with file selection and pre-flight checks
 - **Custom Window**: Native-looking macOS window with custom title bar
 
 ## Troubleshooting
@@ -159,6 +162,31 @@ The app requests file system access through macOS entitlements. Make sure to gra
 ### Archive Won't Open
 
 Ensure the file is a valid archive and not corrupted. Try opening it with another tool to verify.
+
+## Security & Stability
+
+WinZipper includes multiple security and stability protections:
+
+### Protection Against Malicious Archives
+
+- **Path Traversal Prevention (Zip Slip)**: Validates all file paths to prevent extraction outside the destination directory
+- **Archive Bomb Protection**: Limits extraction to prevent zip bombs (max 100,000 files, 10GB total)
+- **File Size Limits**: Maximum 2GB archive size to prevent memory exhaustion
+- **Disk Space Validation**: Checks available disk space before extraction (estimates 3x archive size needed)
+
+### Process Safety
+
+- **Timeout Protection**: System tool operations timeout after 5-10 minutes to prevent hanging
+- **Error Logging**: All process failures are logged with stderr output for debugging
+- **Tool Validation**: Verifies required system tools (unrar, 7z) before operations
+
+### User Safety
+
+- **Pre-flight Checks**: Validates file size and disk space before operations
+- **Clear Error Messages**: Provides detailed feedback with installation instructions
+- **Safe Defaults**: Conservative limits to ensure system stability
+
+These protections make WinZipper safe to use even with untrusted archive files.
 
 ## Contributing
 
