@@ -70,7 +70,7 @@ class SystemToolsChecker {
         case AppConstants.tool7zip:
           return 'Install via Homebrew:\nbrew install p7zip';
         case AppConstants.toolRar:
-          return 'Install via Homebrew:\nbrew install rar';
+          return 'RAR compression requires WinRAR (commercial license).\n\nAlternatives:\n• Use ZIP format (built-in, free)\n• Use 7-Zip format (brew install p7zip)\n\nTo purchase WinRAR:\nhttps://www.rarlab.com';
         default:
           return 'Tool not found. Please install it manually.';
       }
@@ -81,15 +81,16 @@ class SystemToolsChecker {
         case AppConstants.tool7zip:
           return 'Install via package manager:\nsudo apt install p7zip-full  # Debian/Ubuntu\nsudo dnf install p7zip       # Fedora\nsudo pacman -S p7zip         # Arch';
         case AppConstants.toolRar:
-          return 'Install via package manager:\nsudo apt install rar  # Debian/Ubuntu\nsudo dnf install rar  # Fedora';
+          return 'RAR compression requires WinRAR (commercial license).\n\nAlternatives:\n• Use ZIP format (built-in, free)\n• Use 7-Zip: sudo apt install p7zip-full\n\nTo purchase WinRAR:\nhttps://www.rarlab.com';
         default:
           return 'Tool not found. Please install it via your package manager.';
       }
     } else if (Platform.isWindows) {
       switch (tool) {
         case AppConstants.toolUnrar:
+          return 'Download and install WinRAR from:\nhttps://www.rarlab.com/download.htm\n\nNote: UnRAR is free for extraction only.';
         case AppConstants.toolRar:
-          return 'Download and install WinRAR from:\nhttps://www.rarlab.com/download.htm';
+          return 'RAR compression requires WinRAR (commercial license).\n\nAlternatives:\n• Use ZIP format (built-in, free)\n• Use 7-Zip: https://www.7-zip.org\n\nTo purchase WinRAR:\nhttps://www.rarlab.com/download.htm';
         case AppConstants.tool7zip:
           return 'Download and install 7-Zip from:\nhttps://www.7-zip.org/download.html';
         default:

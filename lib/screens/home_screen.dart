@@ -478,54 +478,77 @@ class HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<String?> _showArchiveNameDialog() async {
-    final controller = TextEditingController(text: 'archive.zip');
-    return showDialog<String>(
+  Future<void> _showArchiveOptions() async {
+    // Check if there's a selected item from Downloads
+    if (_downloadsSelectedIndex != null &&
+        _downloadsSelectedIndex! < _downloadsContents.length) {
+      final selectedEntity = _downloadsContents[_downloadsSelectedIndex!];
+      final isFolder = selectedEntity is Directory;
+
+      // Directly compress the selected item
+      if (isFolder) {
+        await _compressSpecificDirectory(selectedEntity.path);
+      } else {
+        await _compressSpecificFiles([selectedEntity.path]);
+      }
+      return;
+    }
+
+    // No selection - show options dialog
+    showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Text('Archive Name'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0066FF).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.archive,
+                color: Color(0xFF0066FF),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Create Archive',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Enter a name for your archive:',
-              style: TextStyle(fontSize: 13, color: Colors.grey),
+              'Choose what to archive:',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              autofocus: true,
-              decoration: InputDecoration(
-                labelText: 'Archive name',
-                hintText: 'archive.zip',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                suffixIcon: PopupMenuButton<String>(
-                  icon: const Icon(Icons.arrow_drop_down),
-                  onSelected: (String value) {
-                    final baseName =
-                        path.basenameWithoutExtension(controller.text);
-                    controller.text = '$baseName$value';
-                  },
-                  itemBuilder: (BuildContext context) =>
-                      <PopupMenuEntry<String>>[
-                    const PopupMenuItem<String>(
-                        value: '.zip', child: Text('.zip')),
-                    const PopupMenuItem<String>(
-                        value: '.tar', child: Text('.tar')),
-                    const PopupMenuItem<String>(
-                        value: '.tar.gz', child: Text('.tar.gz')),
-                    const PopupMenuItem<String>(
-                        value: '.tar.bz2', child: Text('.tar.bz2')),
-                    const PopupMenuItem<String>(
-                        value: '.7z', child: Text('.7z (requires 7z)')),
-                  ],
-                ),
-              ),
-              onSubmitted: (value) => Navigator.pop(context, value),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: const Icon(Icons.insert_drive_file_outlined, color: Color(0xFF0066FF)),
+              title: const Text('Compress Files'),
+              subtitle: const Text('Select one or more files to compress'),
+              onTap: () {
+                Navigator.pop(context);
+                _compressFiles();
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.folder_outlined, color: Color(0xFF0066FF)),
+              title: const Text('Compress Folder'),
+              subtitle: const Text('Select a folder to compress'),
+              onTap: () {
+                Navigator.pop(context);
+                _compressDirectory();
+              },
             ),
           ],
         ),
@@ -534,20 +557,373 @@ class HomeScreenState extends State<HomeScreen> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF6A00C),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text('Create'),
-          ),
         ],
       ),
     );
+  }
+
+  // Compress specific files (from selection)
+  Future<void> _compressSpecificFiles(List<String> sourcePaths) async {
+    if (sourcePaths.isEmpty) return;
+
+    try {
+      // Ask for destination archive name
+      final archiveName = await _showArchiveNameDialog();
+      if (archiveName == null || archiveName.isEmpty) return;
+
+      final saveResult = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save Archive',
+        fileName: archiveName,
+      );
+
+      if (saveResult != null) {
+        // Check if required tools are available for the chosen archive type
+        final archiveType = ArchiveService.detectArchiveType(saveResult);
+        String? requiredTool;
+        if (archiveType == ArchiveType.rar) {
+          requiredTool = AppConstants.toolRar;
+        } else if (archiveType == ArchiveType.sevenZip) {
+          requiredTool = AppConstants.tool7zip;
+        }
+
+        if (requiredTool != null) {
+          final isAvailable =
+              await SystemToolsChecker.isToolAvailable(requiredTool);
+          if (!isAvailable) {
+            _showErrorDialog(
+              'Tool Not Found',
+              SystemToolsChecker.getToolErrorMessage(requiredTool),
+            );
+            return;
+          }
+        }
+
+        setState(() {
+          _isLoading = true;
+          _statusMessage =
+              'Compressing ${sourcePaths.length} ${sourcePaths.length == 1 ? 'file' : 'files'}...';
+        });
+
+        final success = await ArchiveService.compressToArchive(
+          sourcePaths,
+          saveResult,
+        );
+
+        setState(() {
+          _isLoading = false;
+          _statusMessage = success
+              ? 'Files compressed successfully!'
+              : 'Failed to compress files';
+        });
+
+        if (success) {
+          _showSuccessDialog(
+            'Compression Complete',
+            'Archive created at:\n$saveResult',
+            filePath: saveResult,
+          );
+        } else {
+          String errorMessage = 'Could not create the archive.';
+          if (requiredTool != null) {
+            errorMessage +=
+                '\n\n${SystemToolsChecker.getInstallationInstructions(requiredTool)}';
+          }
+          _showErrorDialog('Compression Failed', errorMessage);
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _statusMessage = 'Error: ${e.toString()}';
+      });
+    }
+  }
+
+  // Compress specific directory (from selection)
+  Future<void> _compressSpecificDirectory(String directoryPath) async {
+    try {
+      // Ask for destination archive name
+      final archiveName = await _showArchiveNameDialog();
+      if (archiveName == null || archiveName.isEmpty) return;
+
+      final saveResult = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save Archive',
+        fileName: archiveName,
+      );
+
+      if (saveResult != null) {
+        // Check if required tools are available for the chosen archive type
+        final archiveType = ArchiveService.detectArchiveType(saveResult);
+        String? requiredTool;
+        if (archiveType == ArchiveType.rar) {
+          requiredTool = AppConstants.toolRar;
+        } else if (archiveType == ArchiveType.sevenZip) {
+          requiredTool = AppConstants.tool7zip;
+        }
+
+        if (requiredTool != null) {
+          final isAvailable =
+              await SystemToolsChecker.isToolAvailable(requiredTool);
+          if (!isAvailable) {
+            _showErrorDialog(
+              'Tool Not Found',
+              SystemToolsChecker.getToolErrorMessage(requiredTool),
+            );
+            return;
+          }
+        }
+
+        setState(() {
+          _isLoading = true;
+          _statusMessage = 'Compressing directory...';
+        });
+
+        final success = await ArchiveService.compressToArchive(
+          [directoryPath],
+          saveResult,
+        );
+
+        setState(() {
+          _isLoading = false;
+          _statusMessage = success
+              ? 'Directory compressed successfully!'
+              : 'Failed to compress directory';
+        });
+
+        if (success) {
+          _showSuccessDialog(
+            'Compression Complete',
+            'Archive created at:\n$saveResult',
+            filePath: saveResult,
+          );
+        } else {
+          String errorMessage = 'Could not create the archive.';
+          if (requiredTool != null) {
+            errorMessage +=
+                '\n\n${SystemToolsChecker.getInstallationInstructions(requiredTool)}';
+          }
+          _showErrorDialog('Compression Failed', errorMessage);
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _statusMessage = 'Error: ${e.toString()}';
+      });
+    }
+  }
+
+  Future<String?> _showArchiveNameDialog() async {
+    String selectedFormat = '.zip';
+    final controller = TextEditingController(text: 'archive');
+
+    return showDialog<String>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0066FF).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.archive,
+                  color: Color(0xFF0066FF),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Create Archive',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 500,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Archive Name:',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    hintText: 'Enter archive name',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  ),
+                  onSubmitted: (value) => Navigator.pop(context, '$value$selectedFormat'),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Format:',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _buildFormatChip('.zip', 'ZIP', selectedFormat, (format) {
+                      setDialogState(() => selectedFormat = format);
+                    }, recommended: true),
+                    _buildFormatChip('.tar.gz', 'TAR.GZ', selectedFormat, (format) {
+                      setDialogState(() => selectedFormat = format);
+                    }),
+                    _buildFormatChip('.7z', '7-Zip', selectedFormat, (format) {
+                      setDialogState(() => selectedFormat = format);
+                    }),
+                    _buildFormatChip('.tar', 'TAR', selectedFormat, (format) {
+                      setDialogState(() => selectedFormat = format);
+                    }),
+                    _buildFormatChip('.tar.bz2', 'TAR.BZ2', selectedFormat, (format) {
+                      setDialogState(() => selectedFormat = format);
+                    }),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Info banner
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: selectedFormat == '.7z'
+                        ? Colors.orange.shade50
+                        : Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: selectedFormat == '.7z'
+                          ? Colors.orange.shade200
+                          : Colors.blue.shade200,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        selectedFormat == '.7z' ? Icons.info_outline : Icons.check_circle_outline,
+                        size: 16,
+                        color: selectedFormat == '.7z'
+                            ? Colors.orange.shade700
+                            : Colors.blue.shade700,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _getFormatInfoMessage(selectedFormat),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: selectedFormat == '.7z'
+                                ? Colors.orange.shade900
+                                : Colors.blue.shade900,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, '${controller.text}$selectedFormat'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0066FF),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text('Create Archive'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFormatChip(String format, String label, String selectedFormat, Function(String) onSelect, {bool recommended = false}) {
+    final isSelected = selectedFormat == format;
+    return InkWell(
+      onTap: () => onSelect(format),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? const Color(0xFF0066FF)
+              : recommended
+                  ? Colors.green.shade50
+                  : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF0066FF)
+                : recommended
+                    ? Colors.green.shade300
+                    : Colors.grey.shade300,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (recommended && !isSelected)
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Icon(Icons.star, size: 14, color: Colors.green.shade700),
+              ),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: isSelected
+                    ? Colors.white
+                    : recommended
+                        ? Colors.green.shade700
+                        : Colors.grey.shade700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getFormatInfoMessage(String format) {
+    switch (format) {
+      case '.zip':
+        return 'Best compatibility • Native support • No tools required';
+      case '.tar.gz':
+        return 'Great compression • Unix/Linux standard • Native support';
+      case '.tar.bz2':
+        return 'Better compression than GZIP • Native support';
+      case '.tar':
+        return 'Uncompressed archive • Fast • Native support';
+      case '.7z':
+        return 'Best compression ratio • Requires 7z tool (brew install p7zip)';
+      default:
+        return 'Native support • No additional tools required';
+    }
   }
 
   void _showSuccessDialog(String title, String message, {String? filePath}) {
@@ -1007,39 +1383,36 @@ class HomeScreenState extends State<HomeScreen> {
           bottom: BorderSide(color: Color(0xFFD1D1D6), width: 0.5),
         ),
       ),
-      child: _isSearching
-          ? _buildSearchBar()
-          : Row(
-              children: [
-                // Archive title
-                Icon(Icons.archive, color: Colors.grey.shade600, size: 16),
-                const SizedBox(width: 6),
-                Text(
-                  fileName,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.grey.shade700,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(width: 24),
-                // Toolbar buttons
-                _buildToolbarButtonNew(Icons.folder_open, 'Archive', () => _pickArchiveFile()),
-                _buildToolbarButtonNew(Icons.unarchive, 'Extract', hasArchive ? () => _extractArchive() : null),
-                _buildToolbarButtonNew(Icons.check_circle_outline, 'Test', null),
-                _buildToolbarButtonNew(Icons.search, 'Find', hasArchive ? () {
-                  setState(() => _isSearching = true);
-                } : null),
-                _buildToolbarButtonNew(Icons.auto_fix_high, 'Wizard', null),
-                _buildToolbarButtonNew(Icons.visibility_outlined, 'View',
-                    _selectedIndex != null ? () => _viewSelectedFile() : null),
-                _buildToolbarButtonNew(Icons.info_outline, 'Info',
-                    _selectedIndex != null ? () => _showFileInfo() : null),
-                _buildToolbarButtonNew(Icons.delete_outline, 'Delete', null),
-                _buildToolbarButtonNew(Icons.build_outlined, 'Repair', null),
-              ],
+      child: Row(
+        children: [
+          // Archive title
+          Icon(Icons.archive, color: Colors.grey.shade600, size: 16),
+          const SizedBox(width: 6),
+          Text(
+            fileName,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade700,
             ),
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(width: 24),
+          // Toolbar buttons
+          _buildToolbarButtonNew(Icons.archive_outlined, 'Archive', () => _showArchiveOptions()),
+          _buildToolbarButtonNew(Icons.folder_open, 'Open', () => _pickArchiveFile()),
+          _buildToolbarButtonNew(Icons.unarchive, 'Extract', hasArchive ? () => _extractArchive() : null),
+          _buildToolbarButtonNew(Icons.search, 'Find', hasArchive ? () {
+            setState(() => _isSearching = true);
+          } : null),
+          _buildToolbarButtonNew(Icons.visibility_outlined, 'View',
+              _selectedIndex != null ? () => _viewSelectedFile() : null),
+          _buildToolbarButtonNew(Icons.info_outline, 'Info',
+              _selectedIndex != null ? () => _showFileInfo() : null),
+          _buildToolbarButtonNew(Icons.cloud_upload_outlined, 'Share',
+              hasArchive ? () => CloudUploadDialog.show(context, _selectedFilePath!) : null),
+        ],
+      ),
     );
   }
 
@@ -1140,6 +1513,13 @@ class HomeScreenState extends State<HomeScreen> {
         children: [
           // Breadcrumb
           _buildBreadcrumb(),
+
+          // Search Bar - appears below breadcrumb with animation
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            child: _isSearching ? _buildSearchBar() : const SizedBox.shrink(),
+          ),
 
           // Table Header
           _buildTableHeader(),
@@ -1521,82 +1901,109 @@ class HomeScreenState extends State<HomeScreen> {
                 item.toLowerCase().contains(_searchQuery.toLowerCase()))
             .length;
 
-    return Row(
-      children: [
-        Expanded(
-          child: TextField(
-            controller: _searchController,
-            autofocus: true,
-            decoration: InputDecoration(
-              hintText: 'Search',
-              prefixIcon: const Icon(Icons.search, size: 18),
-              border: OutlineInputBorder(
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: const BoxDecoration(
+        color: Color(0xFFFAFAFA),
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFE5E5EA), width: 0.5),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 32,
+              decoration: BoxDecoration(
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(color: Colors.grey.shade300),
+                border: Border.all(color: const Color(0xFFD1D1D6), width: 0.5),
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(color: Colors.grey.shade300),
+              child: TextField(
+                controller: _searchController,
+                autofocus: true,
+                style: const TextStyle(fontSize: 12, color: Color(0xFF000000)),
+                decoration: InputDecoration(
+                  hintText: 'Search in archive...',
+                  hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
+                  prefixIcon: const Icon(Icons.search, size: 16, color: Color(0xFF8E8E93)),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  isDense: true,
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.close, size: 14, color: Color(0xFF8E8E93)),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () {
+                            setState(() {
+                              _searchController.clear();
+                              _searchQuery = '';
+                              _archiveContents = _getItemsInCurrentPath(_currentPath);
+                            });
+                          },
+                        )
+                      : null,
+                ),
+                onChanged: (query) {
+                  setState(() {
+                    _searchQuery = query;
+                    if (query.isEmpty) {
+                      _archiveContents = _getItemsInCurrentPath(_currentPath);
+                    } else {
+                      _archiveContents = _allArchiveContents
+                          .where((item) =>
+                              item.toLowerCase().contains(query.toLowerCase()))
+                          .toList();
+                    }
+                  });
+                },
               ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: Color(0xFF0066FF), width: 2),
-              ),
-              filled: true,
-              fillColor: Colors.white,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              isDense: true,
-              suffixIcon: _searchQuery.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.close, size: 16),
-                      onPressed: () {
-                        setState(() {
-                          _searchController.clear();
-                          _searchQuery = '';
-                          _archiveContents = _getItemsInCurrentPath(_currentPath);
-                        });
-                      },
-                    )
-                  : null,
             ),
-            onChanged: (query) {
+          ),
+          if (_searchQuery.isNotEmpty) ...[
+            const SizedBox(width: 12),
+            Text(
+              '$searchResults ${searchResults == 1 ? 'result' : 'results'}',
+              style: const TextStyle(
+                fontSize: 11,
+                color: Color(0xFF6E6E73),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+          const SizedBox(width: 12),
+          InkWell(
+            onTap: () {
               setState(() {
-                _searchQuery = query;
-                if (query.isEmpty) {
-                  _archiveContents = _getItemsInCurrentPath(_currentPath);
-                } else {
-                  _archiveContents = _allArchiveContents
-                      .where((item) =>
-                          item.toLowerCase().contains(query.toLowerCase()))
-                      .toList();
-                }
+                _isSearching = false;
+                _searchQuery = '';
+                _searchController.clear();
+                _archiveContents = _getItemsInCurrentPath(_currentPath);
               });
             },
-          ),
-        ),
-        if (_searchQuery.isNotEmpty) ...[
-          const SizedBox(width: 8),
-          Text(
-            '$searchResults ${searchResults == 1 ? 'item' : 'items'}',
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.grey.shade600,
+            borderRadius: BorderRadius.circular(4),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Done',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF0066FF),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.keyboard_arrow_up, size: 14, color: Color(0xFF0066FF)),
+                ],
+              ),
             ),
           ),
         ],
-        const SizedBox(width: 8),
-        TextButton(
-          onPressed: () {
-            setState(() {
-              _isSearching = false;
-              _searchQuery = '';
-              _searchController.clear();
-              _archiveContents = _getItemsInCurrentPath(_currentPath);
-            });
-          },
-          child: const Text('Done'),
-        ),
-      ],
+      ),
     );
   }
 
