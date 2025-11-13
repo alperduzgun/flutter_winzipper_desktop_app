@@ -19,13 +19,14 @@ class UploadResult {
 }
 
 /// Service for uploading files to cloud storage
-/// Uses transfer.sh free upload service
+/// Uses Litterbox (catbox.moe) - free temporary file hosting
+/// Files are kept for 72 hours (3 days)
 class CloudUploadService {
-  static const String _uploadUrl = 'https://transfer.sh';
+  static const String _uploadUrl = 'https://litterbox.catbox.moe/resources/internals/api.php';
   static const Duration _timeout = Duration(minutes: 10);
   static const int _maxRetries = 3;
 
-  /// Upload a file to transfer.sh and get shareable link
+  /// Upload a file to Litterbox and get shareable link (72h retention)
   ///
   /// [filePath] - Path to file to upload
   /// [onProgress] - Optional callback for upload progress (0.0 to 1.0)
@@ -99,24 +100,24 @@ class CloudUploadService {
       return UploadResult.failure('File is empty');
     }
 
-    // Check file size (transfer.sh limit)
-    if (fileSize > 10 * 1024 * 1024 * 1024) {
+    // Litterbox doesn't specify size limit, but reasonable limit for free service
+    if (fileSize > 1 * 1024 * 1024 * 1024) {
       return UploadResult.failure(
-        'File too large (${formatFileSize(fileSize)}). Max: 10GB',
+        'File too large (${formatFileSize(fileSize)}). Max: 1GB',
       );
     }
 
     final fileName = path.basename(filePath);
 
-    // transfer.sh uses simple PUT with file in body, not multipart
-    final uri = Uri.parse('$_uploadUrl/$fileName');
-    final request = http.Request('PUT', uri);
+    // Litterbox uses multipart form data
+    final uri = Uri.parse(_uploadUrl);
+    final request = http.MultipartRequest('POST', uri);
 
-    // Add headers
-    request.headers['Content-Type'] = 'application/octet-stream';
-    request.headers['Content-Length'] = fileSize.toString();
+    // Add form fields
+    request.fields['reqtype'] = 'fileupload';
+    request.fields['time'] = '72h'; // Keep file for 72 hours (3 days)
 
-    // Use stream to avoid loading entire file into memory
+    // Add file with stream to avoid loading entire file into memory
     int bytesRead = 0;
     final stream = file.openRead();
 
@@ -140,10 +141,15 @@ class CloudUploadService {
       ),
     );
 
-    request.bodyBytes = await progressStream
-        .expand((chunk) => chunk)
-        .toList()
-        .timeout(_timeout);
+    // Create multipart file from stream
+    final multipartFile = http.MultipartFile(
+      'fileToUpload',
+      progressStream,
+      fileSize,
+      filename: fileName,
+    );
+
+    request.files.add(multipartFile);
 
     // Send request
     final streamedResponse = await request.send().timeout(_timeout);
@@ -154,10 +160,11 @@ class CloudUploadService {
     if (streamedResponse.statusCode == 200) {
       final downloadUrl = response.body.trim();
 
-      // Validate response (transfer.sh returns just the URL)
+      // Validate response (Litterbox returns just the URL)
       if (downloadUrl.isNotEmpty &&
           downloadUrl.startsWith('http') &&
-          !downloadUrl.contains('<html>')) {
+          !downloadUrl.contains('<html>') &&
+          !downloadUrl.contains('error')) {
         return UploadResult.success(downloadUrl);
       } else {
         return UploadResult.failure('Invalid response from server');

@@ -176,7 +176,7 @@ class _CloudUploadSuccessViewState extends State<_CloudUploadSuccessView> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Link expires in 14 days',
+                    'Link expires in 72 hours (3 days)',
                     style: TextStyle(
                       fontSize: 11,
                       color: Colors.blue.shade700,
