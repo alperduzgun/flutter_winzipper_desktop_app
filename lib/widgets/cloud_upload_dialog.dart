@@ -25,11 +25,22 @@ class CloudUploadDialog extends StatelessWidget {
     return BlocProvider(
       create: (context) => CloudUploadCubit(CloudUploadService())
         ..uploadFile(filePath),
-      child: Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: const _CloudUploadDialogContent(),
+      child: BlocBuilder<CloudUploadCubit, CloudUploadState>(
+        builder: (context, state) {
+          // Allow dismissal only in final states (success/failure)
+          final canDismiss = state is CloudUploadSuccess ||
+              state is CloudUploadFailure;
+
+          return WillPopScope(
+            onWillPop: () async => canDismiss,
+            child: Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const _CloudUploadDialogContent(),
+            ),
+          );
+        },
       ),
     );
   }

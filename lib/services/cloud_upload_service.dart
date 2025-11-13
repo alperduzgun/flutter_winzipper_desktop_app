@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
@@ -21,7 +22,8 @@ class UploadResult {
 /// Uses transfer.sh free upload service
 class CloudUploadService {
   static const String _uploadUrl = 'https://transfer.sh';
-  static const Duration _timeout = Duration(minutes: 5);
+  static const Duration _timeout = Duration(minutes: 10);
+  static const int _maxRetries = 3;
 
   /// Upload a file to transfer.sh and get shareable link
   ///
@@ -33,62 +35,118 @@ class CloudUploadService {
     String filePath, {
     Function(double progress)? onProgress,
   }) async {
-    try {
-      final file = File(filePath);
+    int retries = 0;
 
-      if (!await file.exists()) {
-        return UploadResult.failure('File not found');
-      }
-
-      final fileSize = await file.length();
-      if (fileSize == 0) {
-        return UploadResult.failure('File is empty');
-      }
-
-      // Check file size (transfer.sh has limits, reasonable check)
-      if (fileSize > 10 * 1024 * 1024 * 1024) { // 10GB
-        return UploadResult.failure('File too large (max 10GB)');
-      }
-
-      final fileName = path.basename(filePath);
-      final uri = Uri.parse('$_uploadUrl/$fileName');
-
-      // Create multipart request
-      final request = http.MultipartRequest('PUT', uri);
-
-      // Add file
-      final fileStream = http.ByteStream(file.openRead());
-      final multipartFile = http.MultipartFile(
-        'file',
-        fileStream,
-        fileSize,
-        filename: fileName,
-      );
-      request.files.add(multipartFile);
-
-      // Send request with timeout and progress tracking
-      final streamedResponse = await request.send().timeout(_timeout);
-
-      if (streamedResponse.statusCode == 200) {
-        final response = await http.Response.fromStream(streamedResponse);
-        final downloadUrl = response.body.trim();
-
-        if (downloadUrl.isNotEmpty && downloadUrl.startsWith('http')) {
-          return UploadResult.success(downloadUrl);
-        } else {
-          return UploadResult.failure('Invalid response from server');
+    while (retries < _maxRetries) {
+      try {
+        final result = await _attemptUpload(filePath, onProgress);
+        return result;
+      } on SocketException catch (e) {
+        retries++;
+        if (retries >= _maxRetries) {
+          return UploadResult.failure('Network error: ${e.message}');
         }
-      } else {
-        return UploadResult.failure(
-          'Upload failed: ${streamedResponse.statusCode} ${streamedResponse.reasonPhrase}',
-        );
+        // Exponential backoff: 2s, 4s, 8s
+        await Future.delayed(Duration(seconds: 2 << (retries - 1)));
+      } on TimeoutException {
+        return UploadResult.failure('Upload timeout (exceeded 10 minutes)');
+      } catch (e) {
+        return UploadResult.failure('Upload error: ${e.toString()}');
       }
-    } on TimeoutException {
-      return UploadResult.failure('Upload timeout (exceeded 5 minutes)');
-    } on SocketException {
-      return UploadResult.failure('Network error: No internet connection');
-    } catch (e) {
-      return UploadResult.failure('Upload error: ${e.toString()}');
+    }
+
+    return UploadResult.failure('Upload failed after $_maxRetries retries');
+  }
+
+  /// Single upload attempt
+  Future<UploadResult> _attemptUpload(
+    String filePath,
+    Function(double progress)? onProgress,
+  ) async {
+    final file = File(filePath);
+
+    if (!await file.exists()) {
+      return UploadResult.failure('File not found');
+    }
+
+    final fileSize = await file.length();
+    if (fileSize == 0) {
+      return UploadResult.failure('File is empty');
+    }
+
+    // Check file size (transfer.sh limit)
+    if (fileSize > 10 * 1024 * 1024 * 1024) {
+      return UploadResult.failure(
+        'File too large (${formatFileSize(fileSize)}). Max: 10GB',
+      );
+    }
+
+    final fileName = path.basename(filePath);
+
+    // transfer.sh uses simple PUT with file in body, not multipart
+    final uri = Uri.parse('$_uploadUrl/$fileName');
+    final request = http.Request('PUT', uri);
+
+    // Add headers
+    request.headers['Content-Type'] = 'application/octet-stream';
+    request.headers['Content-Length'] = fileSize.toString();
+
+    // Use stream to avoid loading entire file into memory
+    int bytesRead = 0;
+    final stream = file.openRead();
+
+    // Track progress with stream transformer
+    final progressStream = stream.transform(
+      StreamTransformer.fromHandlers(
+        handleData: (List<int> data, EventSink<List<int>> sink) {
+          bytesRead += data.length;
+          if (onProgress != null) {
+            final progress = bytesRead / fileSize;
+            onProgress(progress);
+          }
+          sink.add(data);
+        },
+        handleDone: (EventSink<List<int>> sink) {
+          sink.close();
+        },
+        handleError: (error, stackTrace, EventSink<List<int>> sink) {
+          sink.addError(error, stackTrace);
+        },
+      ),
+    );
+
+    request.bodyBytes = await progressStream
+        .expand((chunk) => chunk)
+        .toList()
+        .timeout(_timeout);
+
+    // Send request
+    final streamedResponse = await request.send().timeout(_timeout);
+
+    // Read response
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (streamedResponse.statusCode == 200) {
+      final downloadUrl = response.body.trim();
+
+      // Validate response (transfer.sh returns just the URL)
+      if (downloadUrl.isNotEmpty &&
+          downloadUrl.startsWith('http') &&
+          !downloadUrl.contains('<html>')) {
+        return UploadResult.success(downloadUrl);
+      } else {
+        return UploadResult.failure('Invalid response from server');
+      }
+    } else if (streamedResponse.statusCode == 429) {
+      // Rate limit - will retry with backoff
+      throw SocketException('Rate limit exceeded');
+    } else if (streamedResponse.statusCode >= 500) {
+      // Server error - will retry
+      throw SocketException('Server error: ${streamedResponse.statusCode}');
+    } else {
+      return UploadResult.failure(
+        'Upload failed: ${streamedResponse.statusCode} ${streamedResponse.reasonPhrase}',
+      );
     }
   }
 

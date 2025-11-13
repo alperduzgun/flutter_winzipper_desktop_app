@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:path/path.dart' as path;
 import '../services/cloud_upload_service.dart';
 
 /// States for cloud upload operation
@@ -35,28 +36,42 @@ class CloudUploadCubit extends Cubit<CloudUploadState> {
   /// Upload file to cloud and update state
   Future<void> uploadFile(String filePath) async {
     try {
-      final fileName = filePath.split('/').last;
-      emit(CloudUploadInProgress(fileName, progress: 0.0));
+      // Use path.basename for cross-platform compatibility
+      final fileName = path.basename(filePath);
+
+      if (!isClosed) {
+        emit(CloudUploadInProgress(fileName, progress: 0.0));
+      }
 
       final result = await _uploadService.uploadFile(
         filePath,
         onProgress: (progress) {
-          emit(CloudUploadInProgress(fileName, progress: progress));
+          // Check if cubit is still active before emitting
+          if (!isClosed) {
+            emit(CloudUploadInProgress(fileName, progress: progress));
+          }
         },
       );
 
-      if (result.success) {
-        emit(CloudUploadSuccess(result.url!, fileName));
-      } else {
-        emit(CloudUploadFailure(result.error ?? 'Unknown error'));
+      // Final state emission with closed check
+      if (!isClosed) {
+        if (result.success) {
+          emit(CloudUploadSuccess(result.url!, fileName));
+        } else {
+          emit(CloudUploadFailure(result.error ?? 'Unknown error'));
+        }
       }
     } catch (e) {
-      emit(CloudUploadFailure('Upload failed: ${e.toString()}'));
+      if (!isClosed) {
+        emit(CloudUploadFailure('Upload failed: ${e.toString()}'));
+      }
     }
   }
 
   /// Reset to initial state
   void reset() {
-    emit(CloudUploadInitial());
+    if (!isClosed) {
+      emit(CloudUploadInitial());
+    }
   }
 }
