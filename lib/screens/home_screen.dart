@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -20,14 +19,156 @@ class HomeScreen extends StatefulWidget {
 class HomeScreenState extends State<HomeScreen> {
   String? _selectedFilePath;
   List<String> _archiveContents = [];
+  List<String> _allArchiveContents = []; // Store all items for navigation
   bool _isLoading = false;
   String _statusMessage = '';
   ArchiveType _currentArchiveType = ArchiveType.unknown;
+  int? _hoveredIndex;
+  int? _selectedIndex;
+  String _currentPath = ''; // Current folder path in archive
+  bool _isSearching = false; // Search mode
+  String _searchQuery = ''; // Current search query
+  final TextEditingController _searchController = TextEditingController();
+  List<FileSystemEntity> _downloadsContents = []; // Downloads folder contents
+  int? _downloadsHoveredIndex;
+  int? _downloadsSelectedIndex;
+  String _sortBy = 'name'; // name, date, kind, size
+  bool _sortAscending = true;
+  String _currentDownloadsPath = ''; // Current folder path in Downloads (relative)
 
   // Public methods to be called from main.dart
   void pickArchiveFile() => _pickArchiveFile();
   void compressFiles() => _compressFiles();
   void compressDirectory() => _compressDirectory();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDownloadsFolder();
+  }
+
+  Future<void> _loadDownloadsFolder({String? subPath}) async {
+    try {
+      final basePath = '${Platform.environment['HOME']}/Downloads';
+      final fullPath = subPath == null || subPath.isEmpty
+          ? basePath
+          : '$basePath/$subPath';
+      final dir = Directory(fullPath);
+
+      if (await dir.exists()) {
+        final contents = await dir.list().toList();
+        setState(() {
+          _currentDownloadsPath = subPath ?? '';
+          _downloadsContents = contents;
+          _sortDownloadsContents();
+        });
+      }
+    } catch (e) {
+      // Ignore errors, keep empty list
+    }
+  }
+
+  void _navigateToDownloadsFolder(String folderName) {
+    final newPath = _currentDownloadsPath.isEmpty
+        ? folderName
+        : '$_currentDownloadsPath/$folderName';
+    _loadDownloadsFolder(subPath: newPath);
+  }
+
+  void _navigateBackInDownloads() {
+    if (_currentDownloadsPath.isEmpty) return;
+
+    final parts = _currentDownloadsPath.split('/');
+    parts.removeLast();
+    final newPath = parts.isEmpty ? '' : parts.join('/');
+    _loadDownloadsFolder(subPath: newPath.isEmpty ? null : newPath);
+  }
+
+  Future<void> _openArchiveFromPath(String filePath) async {
+    try {
+      // Check file size before loading
+      final file = File(filePath);
+      final fileSize = await file.length();
+
+      if (fileSize > AppConstants.maxArchiveSizeBytes) {
+        _showErrorDialog(
+          'Archive Too Large',
+          'Archive size: ${AppConstants.formatBytes(fileSize)}\nMaximum supported: ${AppConstants.formatBytes(AppConstants.maxArchiveSizeBytes)}\n\nCannot preview large archives.',
+        );
+        return;
+      }
+
+      setState(() {
+        _selectedFilePath = filePath;
+        _isLoading = true;
+        _statusMessage = 'Loading archive contents...';
+        _currentArchiveType = ArchiveService.detectArchiveType(filePath);
+      });
+
+      final contents = await ArchiveService.listArchiveContents(filePath);
+
+      setState(() {
+        _allArchiveContents = contents;
+        _archiveContents = _getItemsInCurrentPath('');
+        _currentPath = '';
+        _isLoading = false;
+        _statusMessage = contents.isEmpty
+            ? 'Archive is empty or too large to preview'
+            : '${contents.length} ${contents.length == 1 ? 'item' : 'items'} found';
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _statusMessage = 'Error: ${e.toString()}';
+      });
+      _showErrorDialog(
+        'Error Opening Archive',
+        'Could not open the archive:\n${e.toString()}',
+      );
+    }
+  }
+
+  void _sortDownloadsContents() {
+    _downloadsContents.sort((a, b) {
+      final aIsDir = a is Directory;
+      final bIsDir = b is Directory;
+
+      // Folders first
+      if (aIsDir && !bIsDir) return -1;
+      if (!aIsDir && bIsDir) return 1;
+
+      int comparison = 0;
+
+      switch (_sortBy) {
+        case 'name':
+          comparison = path.basename(a.path).toLowerCase().compareTo(
+            path.basename(b.path).toLowerCase()
+          );
+          break;
+        case 'date':
+          final aStat = a.statSync();
+          final bStat = b.statSync();
+          comparison = aStat.modified.compareTo(bStat.modified);
+          break;
+        case 'kind':
+          final aExt = path.extension(a.path).toLowerCase();
+          final bExt = path.extension(b.path).toLowerCase();
+          comparison = aExt.compareTo(bExt);
+          break;
+        case 'size':
+          if (a is File && b is File) {
+            try {
+              comparison = a.lengthSync().compareTo(b.lengthSync());
+            } catch (e) {
+              comparison = 0;
+            }
+          }
+          break;
+      }
+
+      return _sortAscending ? comparison : -comparison;
+    });
+  }
 
   Future<void> _pickArchiveFile() async {
     try {
@@ -64,7 +205,9 @@ class HomeScreenState extends State<HomeScreen> {
         );
 
         setState(() {
-          _archiveContents = contents;
+          _allArchiveContents = contents;
+          _archiveContents = _getItemsInCurrentPath('');
+          _currentPath = '';
           _isLoading = false;
           _statusMessage = contents.isEmpty
               ? 'Archive is empty or too large to preview'
@@ -495,9 +638,316 @@ class HomeScreenState extends State<HomeScreen> {
     setState(() {
       _selectedFilePath = null;
       _archiveContents = [];
+      _allArchiveContents = [];
       _statusMessage = '';
       _currentArchiveType = ArchiveType.unknown;
+      _currentPath = '';
+      _isSearching = false;
+      _searchQuery = '';
+      _searchController.clear();
     });
+  }
+
+  // Get items in current folder only
+  List<String> _getItemsInCurrentPath(String basePath) {
+    final items = <String>{};
+    final prefix = basePath.isEmpty ? '' : '$basePath/';
+
+    for (final item in _allArchiveContents) {
+      if (item.startsWith(prefix)) {
+        final relativePath = item.substring(prefix.length);
+        if (relativePath.isEmpty) continue;
+
+        // Check if this is a direct child
+        final parts = relativePath.split('/');
+        if (parts.length == 1 || (parts.length == 2 && parts[1].isEmpty)) {
+          // Direct child (file or folder)
+          items.add(item);
+        } else {
+          // Nested item - add only the immediate folder
+          final folderName = parts[0];
+          items.add('$prefix$folderName/');
+        }
+      }
+    }
+
+    return items.toList()..sort();
+  }
+
+  // Navigate into a folder
+  void _navigateToFolder(String folderPath) {
+    setState(() {
+      // Exit search mode when navigating
+      if (_isSearching) {
+        _isSearching = false;
+        _searchQuery = '';
+        _searchController.clear();
+      }
+      _currentPath = folderPath;
+      _archiveContents = _getItemsInCurrentPath(folderPath);
+      _selectedIndex = null;
+    });
+  }
+
+  // Navigate back
+  void _navigateBack() {
+    if (_currentPath.isEmpty) return;
+
+    final parts = _currentPath.split('/');
+    parts.removeLast();
+    final newPath = parts.isEmpty ? '' : parts.join('/');
+
+    _navigateToFolder(newPath);
+  }
+
+  // Preview nested archive file
+  Future<void> _previewNestedArchive(String archiveItemPath) async {
+    try {
+      // Extract the nested archive to a temporary location
+      final tempDir = Directory.systemTemp.createTempSync('winzipper_preview_');
+
+      setState(() {
+        _isLoading = true;
+        _statusMessage = 'Extracting nested archive...';
+      });
+
+      // Extract only this specific file from the main archive
+      final success = await ArchiveService.extractSpecificFile(
+        _selectedFilePath!,
+        archiveItemPath,
+        tempDir.path,
+      );
+
+      if (!success) {
+        setState(() {
+          _isLoading = false;
+          _statusMessage = 'Failed to extract nested archive';
+        });
+        _showErrorDialog(
+          'Preview Failed',
+          'Could not extract the nested archive for preview.',
+        );
+        return;
+      }
+
+      // Get the extracted file path
+      final extractedFileName = path.basename(archiveItemPath);
+      final extractedFilePath = path.join(tempDir.path, extractedFileName);
+      final extractedFile = File(extractedFilePath);
+
+      if (!await extractedFile.exists()) {
+        setState(() {
+          _isLoading = false;
+          _statusMessage = 'Extracted file not found';
+        });
+        _showErrorDialog(
+          'Preview Failed',
+          'The extracted archive file was not found.',
+        );
+        return;
+      }
+
+      // List contents of the nested archive
+      final nestedContents = await ArchiveService.listArchiveContents(
+        extractedFilePath,
+      );
+
+      // Clean up temp file
+      try {
+        await tempDir.delete(recursive: true);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+
+      if (nestedContents.isEmpty) {
+        setState(() {
+          _isLoading = false;
+          _statusMessage = 'Nested archive is empty';
+        });
+        _showErrorDialog(
+          'Preview',
+          'The nested archive "$extractedFileName" is empty.',
+        );
+        return;
+      }
+
+      // Show preview dialog
+      setState(() {
+        _isLoading = false;
+      });
+
+      _showNestedArchivePreviewDialog(extractedFileName, nestedContents);
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _statusMessage = 'Error: ${e.toString()}';
+      });
+      _showErrorDialog(
+        'Preview Error',
+        'An error occurred while previewing the nested archive:\n${e.toString()}',
+      );
+    }
+  }
+
+  void _showNestedArchivePreviewDialog(
+      String archiveName, List<String> contents) {
+    final folders = contents.where((item) => item.endsWith('/')).length;
+    final files = contents.length - folders;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF6A00C).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.archive,
+                color: Color(0xFFF6A00C),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    archiveName,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    '$folders folders, $files files',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.normal,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 600,
+          height: 400,
+          child: Column(
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 4,
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 16),
+                        child: Text(
+                          'Name',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        'Kind',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Content List
+              Expanded(
+                child: ListView.builder(
+                  itemCount: contents.length,
+                  itemBuilder: (context, index) {
+                    final item = contents[index];
+                    final itemName = path.basename(item);
+                    final isFolder = item.endsWith('/');
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: index.isEven
+                            ? Colors.grey.shade50
+                            : Colors.transparent,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isFolder ? Icons.folder : _getFileIcon(itemName),
+                            size: 18,
+                            color: isFolder
+                                ? const Color(0xFFF6A00C)
+                                : _getFileColor(itemName),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            flex: 4,
+                            child: Text(
+                              itemName,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade800,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              isFolder ? 'Folder' : _getFileKind(itemName),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   String _getArchiveTypeLabel() {
@@ -523,10 +973,7 @@ class HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: _buildMainContent(),
-      ),
+      body: _buildMainContent(),
     );
   }
 
@@ -534,279 +981,92 @@ class HomeScreenState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (_selectedFilePath != null) _buildSelectedArchiveInfo(),
-        const SizedBox(height: 16),
-        if (_archiveContents.isNotEmpty || _isLoading)
-          Expanded(child: _buildArchiveContents()),
-        if (_archiveContents.isEmpty && _selectedFilePath == null && !_isLoading)
+        // Top toolbar - always visible
+        _buildTopToolbar(),
+        // Content
+        if (_isLoading)
+          Expanded(child: _buildLoadingState())
+        else if (_archiveContents.isNotEmpty)
+          Expanded(child: _buildArchiveContents())
+        else
           Expanded(child: _buildEmptyState()),
       ],
     );
   }
 
-  Widget _buildSelectedArchiveInfo() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white.withOpacity(0.75),
-                Colors.white.withOpacity(0.35),
-                Colors.white.withOpacity(0.45),
-              ],
-              stops: const [0.0, 0.5, 1.0],
-            ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.9),
-              width: 2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFFF6A00C).withOpacity(0.12),
-                blurRadius: 60,
-                spreadRadius: -10,
-                offset: const Offset(0, 20),
-              ),
-              BoxShadow(
-                color: Colors.black.withOpacity(0.06),
-                blurRadius: 30,
-                spreadRadius: -5,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  // New top toolbar like macOS Finder - single row
+  Widget _buildTopToolbar() {
+    final fileName = _selectedFilePath != null ? path.basename(_selectedFilePath!) : 'Product Files.rar';
+    final hasArchive = _selectedFilePath != null;
 
-  Widget _buildArchiveContents() {
-    if (_isLoading) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withOpacity(0.75),
-                  Colors.white.withOpacity(0.35),
-                  Colors.white.withOpacity(0.45),
-                ],
-                stops: const [0.0, 0.5, 1.0],
-              ),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.9),
-                width: 2,
-              ),
-            ),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      const Color(0xFFF6A00C),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    _statusMessage,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade700,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    if (_archiveContents.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    final folders = _archiveContents.where((item) => item.endsWith('/')).length;
-    final files = _archiveContents.length - folders;
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white.withOpacity(0.75),
-                Colors.white.withOpacity(0.35),
-                Colors.white.withOpacity(0.45),
-              ],
-              stops: const [0.0, 0.5, 1.0],
-            ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.9),
-              width: 2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFFF6A00C).withOpacity(0.08),
-                blurRadius: 60,
-                spreadRadius: -10,
-                offset: const Offset(0, 20),
-              ),
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 30,
-                spreadRadius: -5,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Toolbar
-              _buildToolbar(),
-
-              // Breadcrumb
-              _buildBreadcrumb(),
-
-              // Table Header
-              _buildTableHeader(),
-
-              // Table Content
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _archiveContents.length,
-                  itemBuilder: (context, index) {
-                    final item = _archiveContents[index];
-                    final isFolder = item.endsWith('/');
-                    return _buildTableRow(item, isFolder, index);
-                  },
-                ),
-              ),
-
-              // Footer Summary
-              _buildFooterSummary(folders, files),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.grey.shade100.withOpacity(0.9),
-                  Colors.grey.shade100.withOpacity(0.4),
-                ],
-              ),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: Colors.grey.shade300.withOpacity(0.5),
-                width: 2,
-              ),
-            ),
-            child: Icon(
-              Icons.archive_outlined,
-              size: 80,
-              color: Colors.grey.shade400,
-            ),
-          ),
-          const SizedBox(height: 32),
-          Text(
-            'No Archive Selected',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade800,
-              letterSpacing: -0.5,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Use the sidebar to open or create an archive',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey.shade600,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildToolbar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50.withOpacity(0.5),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF7F7F7),
         border: Border(
-          bottom: BorderSide(
-            color: Colors.grey.shade200.withOpacity(0.5),
-            width: 1,
-          ),
+          bottom: BorderSide(color: Color(0xFFD1D1D6), width: 0.5),
         ),
       ),
-      child: Row(
-        children: [
-          _buildToolbarButton(
-              Icons.unarchive, 'Extract', () => _extractArchive()),
-          _buildToolbarButton(Icons.search, 'Find', () {}),
-          _buildToolbarButton(Icons.visibility, 'View', () {}),
-          _buildToolbarButton(Icons.info_outline, 'Info', () {}),
-        ],
-      ),
+      child: _isSearching
+          ? _buildSearchBar()
+          : Row(
+              children: [
+                // Archive title
+                Icon(Icons.archive, color: Colors.grey.shade600, size: 16),
+                const SizedBox(width: 6),
+                Text(
+                  fileName,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey.shade700,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(width: 24),
+                // Toolbar buttons
+                _buildToolbarButtonNew(Icons.folder_open, 'Archive', () => _pickArchiveFile()),
+                _buildToolbarButtonNew(Icons.unarchive, 'Extract', hasArchive ? () => _extractArchive() : null),
+                _buildToolbarButtonNew(Icons.check_circle_outline, 'Test', null),
+                _buildToolbarButtonNew(Icons.search, 'Find', hasArchive ? () {
+                  setState(() => _isSearching = true);
+                } : null),
+                _buildToolbarButtonNew(Icons.auto_fix_high, 'Wizard', null),
+                _buildToolbarButtonNew(Icons.visibility_outlined, 'View',
+                    _selectedIndex != null ? () => _viewSelectedFile() : null),
+                _buildToolbarButtonNew(Icons.info_outline, 'Info',
+                    _selectedIndex != null ? () => _showFileInfo() : null),
+                _buildToolbarButtonNew(Icons.delete_outline, 'Delete', null),
+                _buildToolbarButtonNew(Icons.build_outlined, 'Repair', null),
+              ],
+            ),
     );
   }
 
-  Widget _buildToolbarButton(IconData icon, String label, VoidCallback onTap) {
+  Widget _buildToolbarButtonNew(IconData icon, String label, VoidCallback? onTap) {
+    final isDisabled = onTap == null;
     return Padding(
-      padding: const EdgeInsets.only(right: 12),
+      padding: const EdgeInsets.only(right: 16),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        borderRadius: BorderRadius.circular(4),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 20, color: Colors.grey.shade700),
-              const SizedBox(height: 4),
+              Icon(
+                icon,
+                size: 22,
+                color: isDisabled ? const Color(0xFFBDBDC1) : const Color(0xFF6E6E73),
+              ),
+              const SizedBox(height: 2),
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey.shade700,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 10,
+                  color: isDisabled ? const Color(0xFFBDBDC1) : const Color(0xFF6E6E73),
+                  fontWeight: FontWeight.w400,
                 ),
               ),
             ],
@@ -816,43 +1076,28 @@ class HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildBreadcrumb() {
-    final fileName =
-        _selectedFilePath != null ? path.basename(_selectedFilePath!) : '';
+  Widget _buildInfoChip(IconData icon, String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.3),
-        border: Border(
-          bottom: BorderSide(
-            color: Colors.grey.shade200.withOpacity(0.5),
-            width: 1,
-          ),
+        color: Colors.grey.shade100.withOpacity(0.8),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.grey.shade300.withOpacity(0.5),
+          width: 1,
         ),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.chevron_left, size: 18, color: Colors.grey.shade600),
-          const SizedBox(width: 8),
-          Icon(Icons.chevron_right, size: 18, color: Colors.grey.shade600),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Row(
-              children: [
-                Icon(Icons.archive, size: 16, color: Colors.grey.shade600),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    fileName,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey.shade700,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
+          Icon(icon, size: 14, color: Colors.grey.shade600),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade700,
             ),
           ),
         ],
@@ -860,119 +1105,22 @@ class HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildTableHeader() {
+  Widget _buildLoadingState() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50.withOpacity(0.7),
-        border: Border(
-          bottom: BorderSide(
-            color: Colors.grey.shade300.withOpacity(0.5),
-            width: 1,
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 4,
-            child: Text(
-              'Name',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey.shade600,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              'Kind',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey.shade600,
-              ),
-            ),
-          ),
-          SizedBox(
-            width: 100,
-            child: Text(
-              'Size',
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey.shade600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTableRow(String item, bool isFolder, int index) {
-    final fileName = path.basename(item);
-    return InkWell(
-      onTap: () {},
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        decoration: BoxDecoration(
-          color:
-              index.isEven ? Colors.white.withOpacity(0.3) : Colors.transparent,
-        ),
-        child: Row(
+      color: Colors.white,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: isFolder
-                    ? const Color(0xFFFFD500).withOpacity(0.2)
-                    : Colors.blue.shade50.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Icon(
-                isFolder ? Icons.folder : _getFileIcon(fileName),
-                color:
-                    isFolder ? const Color(0xFFF6A00C) : Colors.blue.shade700,
-                size: 18,
-              ),
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0066FF)),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              flex: 4,
-              child: Text(
-                fileName,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey.shade800,
-                  fontWeight: FontWeight.w500,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Text(
-                isFolder ? 'Folder' : _getFileKind(fileName),
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            SizedBox(
-              width: 100,
-              child: Text(
-                isFolder ? '--' : '',
-                textAlign: TextAlign.right,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                ),
+            const SizedBox(height: 16),
+            Text(
+              _statusMessage,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF6E6E73),
               ),
             ),
           ],
@@ -981,28 +1129,871 @@ class HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildFooterSummary(int folders, int files) {
+  Widget _buildArchiveContents() {
+    final folders = _archiveContents.where((item) => item.endsWith('/')).length;
+    final files = _archiveContents.length - folders;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Breadcrumb
+          _buildBreadcrumb(),
+
+          // Table Header
+          _buildTableHeader(),
+
+          // Table Content
+          Expanded(
+            child: ListView.builder(
+              itemCount: _archiveContents.length,
+              itemBuilder: (context, index) {
+                final item = _archiveContents[index];
+                final isFolder = item.endsWith('/');
+                return _buildTableRow(item, isFolder, index);
+              },
+            ),
+          ),
+
+          // Footer Summary
+          _buildFooterSummary(folders, files),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    final folders = _downloadsContents.where((e) => e is Directory).length;
+    final files = _downloadsContents.length - folders;
+
+    // Calculate total size
+    int totalSize = 0;
+    for (final entity in _downloadsContents) {
+      if (entity is File) {
+        try {
+          totalSize += entity.lengthSync();
+        } catch (e) {
+          // Ignore
+        }
+      }
+    }
+
+    return Container(
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Breadcrumb - Downloads
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: const BoxDecoration(
+              color: Color(0xFFFAFAFA),
+              border: Border(
+                bottom: BorderSide(color: Color(0xFFE5E5EA), width: 0.5),
+              ),
+            ),
+            child: Row(
+              children: [
+                InkWell(
+                  onTap: _currentDownloadsPath.isEmpty ? null : _navigateBackInDownloads,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.arrow_back_ios,
+                      size: 12,
+                      color: _currentDownloadsPath.isEmpty
+                          ? const Color(0xFFD1D1D6)
+                          : const Color(0xFF8E8E93),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                InkWell(
+                  onTap: _currentDownloadsPath.isEmpty
+                      ? null
+                      : () => _loadDownloadsFolder(),
+                  child: Text(
+                    'Downloads',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: _currentDownloadsPath.isEmpty
+                          ? const Color(0xFF000000)
+                          : const Color(0xFF6E6E73),
+                      fontWeight: _currentDownloadsPath.isEmpty
+                          ? FontWeight.w500
+                          : FontWeight.w400,
+                    ),
+                  ),
+                ),
+                if (_currentDownloadsPath.isNotEmpty) ...[
+                  for (final segment in _currentDownloadsPath.split('/')) ...[
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 4),
+                      child: Icon(Icons.chevron_right, size: 12, color: Color(0xFFC7C7CC)),
+                    ),
+                    Text(
+                      segment,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF000000),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ],
+                const Spacer(),
+                PopupMenuButton<String>(
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(Icons.arrow_drop_down, size: 18, color: Color(0xFF8E8E93)),
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(value: 'sort', child: Text('Sort by...')),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Table Header
+          _buildTableHeader(),
+
+          // Downloads content
+          Expanded(
+            child: _downloadsContents.isEmpty
+                ? const Center(
+                    child: Text(
+                      'Downloads folder is empty',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF8E8E93),
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: _downloadsContents.length,
+                    itemBuilder: (context, index) {
+                      final entity = _downloadsContents[index];
+                      return _buildDownloadsRow(entity, index);
+                    },
+                  ),
+          ),
+
+          // Footer
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: const BoxDecoration(
+              color: Color(0xFFFAFAFA),
+              border: Border(
+                top: BorderSide(color: Color(0xFFE5E5EA), width: 0.5),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  'Total $folders ${folders == 1 ? 'folder' : 'folders'} and ${AppConstants.formatBytes(totalSize)} in $files ${files == 1 ? 'file' : 'files'}',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Color(0xFF8E8E93),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDownloadsRow(FileSystemEntity entity, int index) {
+    final name = path.basename(entity.path);
+    final isFolder = entity is Directory;
+    final stat = entity.statSync();
+    final isHovered = _downloadsHoveredIndex == index;
+    final isSelected = _downloadsSelectedIndex == index;
+
+    // Format date
+    final modified = stat.modified;
+    final now = DateTime.now();
+    String dateStr;
+    if (modified.year == now.year && modified.month == now.month && modified.day == now.day) {
+      dateStr = 'Today, ${modified.hour.toString().padLeft(2, '0')}:${modified.minute.toString().padLeft(2, '0')}';
+    } else if (modified.year == now.year && modified.month == now.month && modified.day == now.day - 1) {
+      dateStr = 'Yesterday, ${modified.hour.toString().padLeft(2, '0')}:${modified.minute.toString().padLeft(2, '0')}';
+    } else {
+      dateStr = '${modified.day} ${_getMonthName(modified.month)} ${modified.year}, ${modified.hour.toString().padLeft(2, '0')}:${modified.minute.toString().padLeft(2, '0')}';
+    }
+
+    // Get size
+    String sizeStr = '--';
+    if (!isFolder && entity is File) {
+      try {
+        sizeStr = AppConstants.formatBytes(entity.lengthSync());
+      } catch (e) {
+        sizeStr = '--';
+      }
+    }
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _downloadsHoveredIndex = index),
+      onExit: (_) => setState(() => _downloadsHoveredIndex = null),
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _downloadsSelectedIndex = _downloadsSelectedIndex == index ? null : index;
+          });
+        },
+        onDoubleTap: () async {
+          if (isFolder) {
+            // Navigate into folder
+            _navigateToDownloadsFolder(name);
+          } else {
+            // Check if it's an archive file
+            final ext = path.extension(name).toLowerCase();
+            if (ext == '.zip' || ext == '.rar' || ext == '.7z' ||
+                ext == '.tar' || ext == '.gz' || ext == '.bz2') {
+              // Open archive
+              await _openArchiveFromPath(entity.path);
+            }
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? const Color(0xFF0058D0)
+                : isHovered
+                    ? const Color(0xFFE8E8ED)
+                    : Colors.transparent,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isFolder ? Icons.folder : _getFileIcon(name),
+                size: 16,
+                color: isFolder
+                    ? const Color(0xFFFFBE0B)
+                    : isSelected
+                        ? Colors.white
+                        : _getFileColor(name),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 4,
+                child: Text(
+                  name,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isSelected ? Colors.white : const Color(0xFF000000),
+                    fontWeight: FontWeight.w400,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  dateStr,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isSelected ? Colors.white.withOpacity(0.9) : const Color(0xFF6E6E73),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  isFolder ? 'Folder' : _getFileKind(name),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isSelected ? Colors.white.withOpacity(0.9) : const Color(0xFF6E6E73),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              SizedBox(
+                width: 80,
+                child: Text(
+                  sizeStr,
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isSelected ? Colors.white.withOpacity(0.9) : const Color(0xFF6E6E73),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _getMonthName(int month) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[month - 1];
+  }
+
+  Widget _buildToolbar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50.withOpacity(0.5),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.grey.shade50.withOpacity(0.8),
+            Colors.grey.shade50.withOpacity(0.4),
+          ],
+        ),
         border: Border(
-          top: BorderSide(
-            color: Colors.grey.shade200.withOpacity(0.5),
+          bottom: BorderSide(
+            color: Colors.grey.shade200.withOpacity(0.6),
             width: 1,
           ),
         ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
+      child: _isSearching ? _buildSearchBar() : _buildToolbarButtons(),
+    );
+  }
+
+  Widget _buildToolbarButtons() {
+    return Row(
+      children: [
+        _buildToolbarButton(
+          Icons.unarchive_outlined,
+          'Extract',
+          () => _extractArchive(),
+          isPrimary: true,
+        ),
+        const SizedBox(width: 6),
+        _buildToolbarButton(Icons.search, 'Find', () {
+          setState(() {
+            _isSearching = true;
+          });
+        }),
+        _buildToolbarButton(Icons.visibility_outlined, 'View',
+            _selectedIndex != null ? () => _viewSelectedFile() : null),
+        _buildToolbarButton(Icons.info_outline, 'Info',
+            _selectedIndex != null ? () => _showFileInfo() : null),
+        const Spacer(),
+        // Keyboard hint
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100.withOpacity(0.6),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: Colors.grey.shade300.withOpacity(0.5),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.keyboard_outlined,
+                size: 14,
+                color: Colors.grey.shade600,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '⌘ + F to search',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSearchBar() {
+    final searchResults = _searchQuery.isEmpty
+        ? _archiveContents.length
+        : _allArchiveContents
+            .where((item) =>
+                item.toLowerCase().contains(_searchQuery.toLowerCase()))
+            .length;
+
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _searchController,
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: 'Search',
+              prefixIcon: const Icon(Icons.search, size: 18),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: const BorderSide(color: Color(0xFF0066FF), width: 2),
+              ),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              isDense: true,
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.close, size: 16),
+                      onPressed: () {
+                        setState(() {
+                          _searchController.clear();
+                          _searchQuery = '';
+                          _archiveContents = _getItemsInCurrentPath(_currentPath);
+                        });
+                      },
+                    )
+                  : null,
+            ),
+            onChanged: (query) {
+              setState(() {
+                _searchQuery = query;
+                if (query.isEmpty) {
+                  _archiveContents = _getItemsInCurrentPath(_currentPath);
+                } else {
+                  _archiveContents = _allArchiveContents
+                      .where((item) =>
+                          item.toLowerCase().contains(query.toLowerCase()))
+                      .toList();
+                }
+              });
+            },
+          ),
+        ),
+        if (_searchQuery.isNotEmpty) ...[
+          const SizedBox(width: 8),
           Text(
-            'Total $folders ${folders == 1 ? 'folder' : 'folders'} and $files ${files == 1 ? 'file' : 'files'}',
+            '$searchResults ${searchResults == 1 ? 'item' : 'items'}',
             style: TextStyle(
               fontSize: 11,
               color: Colors.grey.shade600,
             ),
           ),
+        ],
+        const SizedBox(width: 8),
+        TextButton(
+          onPressed: () {
+            setState(() {
+              _isSearching = false;
+              _searchQuery = '';
+              _searchController.clear();
+              _archiveContents = _getItemsInCurrentPath(_currentPath);
+            });
+          },
+          child: const Text('Done'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildToolbarButton(
+    IconData icon,
+    String label,
+    VoidCallback? onTap, {
+    bool isPrimary = false,
+  }) {
+    final isDisabled = onTap == null;
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: isPrimary
+                  ? const Color(0xFFF6A00C).withOpacity(0.15)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+              border: isPrimary
+                  ? Border.all(
+                      color: const Color(0xFFF6A00C).withOpacity(0.3),
+                      width: 1,
+                    )
+                  : null,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  size: 18,
+                  color: isDisabled
+                      ? Colors.grey.shade400
+                      : isPrimary
+                          ? const Color(0xFFF6A00C)
+                          : Colors.grey.shade700,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDisabled
+                        ? Colors.grey.shade400
+                        : isPrimary
+                            ? const Color(0xFFF6A00C)
+                            : Colors.grey.shade700,
+                    fontWeight: isPrimary ? FontWeight.w600 : FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBreadcrumb() {
+    if (_isSearching) return const SizedBox.shrink();
+
+    final fileName = _selectedFilePath != null ? path.basename(_selectedFilePath!) : '';
+    final pathSegments = _currentPath.isEmpty
+        ? <String>[]
+        : _currentPath.split('/').where((s) => s.isNotEmpty).toList();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: const BoxDecoration(
+        color: Color(0xFFFAFAFA),
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFE5E5EA), width: 0.5),
+        ),
+      ),
+      child: Row(
+        children: [
+          InkWell(
+            onTap: _currentPath.isEmpty ? null : _navigateBack,
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Icon(
+                Icons.arrow_back_ios,
+                size: 12,
+                color: _currentPath.isEmpty ? const Color(0xFFD1D1D6) : const Color(0xFF8E8E93),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          InkWell(
+            onTap: () => _navigateToFolder(''),
+            child: Text(
+              fileName,
+              style: const TextStyle(
+                fontSize: 11,
+                color: Color(0xFF6E6E73),
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ),
+          for (int i = 0; i < pathSegments.length; i++) ...[
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4),
+              child: Icon(Icons.chevron_right, size: 12, color: Color(0xFFC7C7CC)),
+            ),
+            InkWell(
+              onTap: () {
+                final targetPath = pathSegments.sublist(0, i + 1).join('/');
+                _navigateToFolder(targetPath);
+              },
+              child: Text(
+                pathSegments[i],
+                style: TextStyle(
+                  fontSize: 11,
+                  color: i == pathSegments.length - 1
+                      ? const Color(0xFF000000)
+                      : const Color(0xFF6E6E73),
+                  fontWeight: i == pathSegments.length - 1
+                      ? FontWeight.w500
+                      : FontWeight.w400,
+                ),
+              ),
+            ),
+          ],
+          const Spacer(),
+          PopupMenuButton<String>(
+            padding: EdgeInsets.zero,
+            icon: const Icon(Icons.arrow_drop_down, size: 18, color: Color(0xFF8E8E93)),
+            itemBuilder: (context) => [
+              const PopupMenuItem(value: 'sort', child: Text('Sort by...')),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBreadcrumbSegment({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool isFirst = false,
+    bool isLast = false,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: isLast ? null : onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: isLast
+                ? const Color(0xFFF6A00C).withOpacity(0.15)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 14,
+                color: isLast
+                    ? const Color(0xFFF6A00C)
+                    : isFirst
+                        ? const Color(0xFFF6A00C).withOpacity(0.7)
+                        : Colors.grey.shade600,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isLast
+                      ? const Color(0xFFF6A00C)
+                      : Colors.grey.shade700,
+                  fontWeight: isLast ? FontWeight.w600 : FontWeight.w500,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTableHeader() {
+    final hasArchive = _selectedFilePath != null;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: const BoxDecoration(
+        color: Color(0xFFFAFAFA),
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFE5E5EA), width: 0.5),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 4,
+            child: _buildColumnHeader('Name', 'name', hasArchive),
+          ),
+          Expanded(
+            flex: 2,
+            child: _buildColumnHeader('Date Modified', 'date', hasArchive),
+          ),
+          Expanded(
+            flex: 2,
+            child: _buildColumnHeader('Kind', 'kind', hasArchive),
+          ),
+          SizedBox(
+            width: 80,
+            child: _buildColumnHeader('Size', 'size', hasArchive, align: TextAlign.right),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildColumnHeader(String label, String sortKey, bool hasArchive, {TextAlign? align}) {
+    final isActive = _sortBy == sortKey && !hasArchive;
+
+    return InkWell(
+      onTap: hasArchive ? null : () {
+        setState(() {
+          if (_sortBy == sortKey) {
+            _sortAscending = !_sortAscending;
+          } else {
+            _sortBy = sortKey;
+            _sortAscending = true;
+          }
+          _sortDownloadsContents();
+        });
+      },
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (align == TextAlign.right) const Spacer(),
+          Text(
+            label,
+            textAlign: align,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: isActive ? const Color(0xFF0066FF) : const Color(0xFF6E6E73),
+              letterSpacing: 0.2,
+            ),
+          ),
+          if (isActive) ...[
+            const SizedBox(width: 4),
+            Icon(
+              _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+              size: 10,
+              color: const Color(0xFF0066FF),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTableRow(String item, bool isFolder, int index) {
+    final fileName = path.basename(item);
+    final isHovered = _hoveredIndex == index;
+    final isSelected = _selectedIndex == index;
+    final isZipFile = !isFolder &&
+        (fileName.toLowerCase().endsWith('.zip') ||
+            fileName.toLowerCase().endsWith('.rar') ||
+            fileName.toLowerCase().endsWith('.7z'));
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hoveredIndex = index),
+      onExit: (_) => setState(() => _hoveredIndex = null),
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _selectedIndex = _selectedIndex == index ? null : index;
+          });
+        },
+        onDoubleTap: () {
+          if (isFolder) {
+            final folderPath = item.endsWith('/') ? item.substring(0, item.length - 1) : item;
+            _navigateToFolder(folderPath);
+          } else if (isZipFile) {
+            _previewNestedArchive(item);
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? const Color(0xFF0058D0)
+                : isHovered
+                    ? const Color(0xFFE8E8ED)
+                    : Colors.transparent,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isFolder ? Icons.folder : _getFileIcon(fileName),
+                size: 16,
+                color: isFolder
+                    ? const Color(0xFFFFBE0B)
+                    : isSelected
+                        ? Colors.white
+                        : _getFileColor(fileName),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 4,
+                child: Text(
+                  fileName,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isSelected ? Colors.white : const Color(0xFF000000),
+                    fontWeight: FontWeight.w400,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  'Yesterday, 22:34',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isSelected ? Colors.white.withOpacity(0.9) : const Color(0xFF6E6E73),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  isFolder ? 'Folder' : _getFileKind(fileName),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isSelected ? Colors.white.withOpacity(0.9) : const Color(0xFF6E6E73),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              SizedBox(
+                width: 80,
+                child: Text(
+                  isFolder ? '--' : '2.54 MB',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isSelected ? Colors.white.withOpacity(0.9) : const Color(0xFF6E6E73),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFooterSummary(int folders, int files) {
+    final file = _selectedFilePath != null ? File(_selectedFilePath!) : null;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: const BoxDecoration(
+        color: Color(0xFFFAFAFA),
+        border: Border(
+          top: BorderSide(color: Color(0xFFE5E5EA), width: 0.5),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          if (file != null)
+            FutureBuilder<int>(
+              future: file.length(),
+              builder: (context, snapshot) {
+                final totalSize = snapshot.hasData
+                    ? AppConstants.formatBytes(snapshot.data!)
+                    : '5.2 MB';
+                return Text(
+                  'Total $folders ${folders == 1 ? 'folder' : 'folders'} and $totalSize in $files ${files == 1 ? 'file' : 'files'}',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Color(0xFF8E8E93),
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );
@@ -1062,5 +2053,285 @@ class HomeScreenState extends State<HomeScreen> {
       default:
         return 'Document';
     }
+  }
+
+  Color _getFileColor(String fileName) {
+    final ext = path.extension(fileName).toLowerCase();
+    switch (ext) {
+      case '.pdf':
+        return Colors.red.shade600;
+      case '.doc':
+      case '.docx':
+        return Colors.blue.shade700;
+      case '.xls':
+      case '.xlsx':
+        return Colors.green.shade700;
+      case '.txt':
+        return Colors.grey.shade700;
+      case '.jpg':
+      case '.jpeg':
+      case '.png':
+      case '.gif':
+        return Colors.purple.shade600;
+      case '.zip':
+      case '.rar':
+      case '.7z':
+        return const Color(0xFFF6A00C);
+      default:
+        return Colors.blue.shade600;
+    }
+  }
+
+
+  // View selected file
+  Future<void> _viewSelectedFile() async {
+    if (_selectedIndex == null || _selectedIndex! >= _archiveContents.length) {
+      return;
+    }
+
+    final selectedItem = _archiveContents[_selectedIndex!];
+    if (selectedItem.endsWith('/')) {
+      // It's a folder, navigate into it
+      _navigateToFolder(
+          selectedItem.substring(0, selectedItem.length - 1));
+      return;
+    }
+
+    // Check if it's a text file
+    final ext = path.extension(selectedItem).toLowerCase();
+    final isTextFile = ['.txt', '.md', '.json', '.xml', '.csv', '.log']
+        .contains(ext);
+
+    if (!isTextFile) {
+      _showErrorDialog(
+        'Preview Not Supported',
+        'File preview is only available for text files (.txt, .md, .json, .xml, .csv, .log).\n\nTo view other files, extract the archive first.',
+      );
+      return;
+    }
+
+    try {
+      setState(() {
+        _isLoading = true;
+        _statusMessage = 'Loading file preview...';
+      });
+
+      // Extract to temp directory
+      final tempDir = Directory.systemTemp.createTempSync('winzipper_view_');
+      final success = await ArchiveService.extractSpecificFile(
+        _selectedFilePath!,
+        selectedItem,
+        tempDir.path,
+      );
+
+      if (!success) {
+        setState(() {
+          _isLoading = false;
+        });
+        _showErrorDialog(
+          'Preview Failed',
+          'Could not extract file for preview.',
+        );
+        return;
+      }
+
+      final fileName = path.basename(selectedItem);
+      final filePath = path.join(tempDir.path, fileName);
+      final file = File(filePath);
+
+      if (!await file.exists()) {
+        setState(() {
+          _isLoading = false;
+        });
+        _showErrorDialog(
+          'Preview Failed',
+          'Extracted file not found.',
+        );
+        return;
+      }
+
+      final content = await file.readAsString();
+
+      // Clean up
+      try {
+        await tempDir.delete(recursive: true);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      _showFilePreviewDialog(fileName, content);
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      _showErrorDialog(
+        'Preview Error',
+        'An error occurred while previewing the file:\n${e.toString()}',
+      );
+    }
+  }
+
+  void _showFilePreviewDialog(String fileName, String content) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(
+              _getFileIcon(fileName),
+              color: _getFileColor(fileName),
+              size: 24,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                fileName,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 700,
+          height: 500,
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: SingleChildScrollView(
+              child: SelectableText(
+                content,
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                  color: Colors.grey.shade900,
+                ),
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Show file info
+  void _showFileInfo() {
+    if (_selectedIndex == null || _selectedIndex! >= _archiveContents.length) {
+      return;
+    }
+
+    final selectedItem = _archiveContents[_selectedIndex!];
+    final fileName = path.basename(selectedItem);
+    final isFolder = selectedItem.endsWith('/');
+    final ext = path.extension(selectedItem);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF6A00C).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                isFolder ? Icons.folder : _getFileIcon(selectedItem),
+                color:
+                    isFolder ? const Color(0xFFF6A00C) : _getFileColor(selectedItem),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'File Information',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 500,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildInfoRow('Name', fileName),
+              const Divider(),
+              _buildInfoRow('Type', isFolder ? 'Folder' : _getFileKind(fileName)),
+              if (!isFolder) ...[
+                const Divider(),
+                _buildInfoRow('Extension', ext.isEmpty ? 'None' : ext),
+              ],
+              const Divider(),
+              _buildInfoRow('Path', selectedItem),
+              const Divider(),
+              _buildInfoRow('Archive', path.basename(_selectedFilePath!)),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade700,
+              ),
+            ),
+          ),
+          Expanded(
+            child: SelectableText(
+              value,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

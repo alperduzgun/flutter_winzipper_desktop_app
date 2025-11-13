@@ -416,6 +416,139 @@ class ArchiveService {
     }
   }
 
+  /// Extracts a specific file from an archive
+  static Future<bool> extractSpecificFile(
+    String archivePath,
+    String fileInArchive,
+    String destinationPath,
+  ) async {
+    try {
+      final archiveType = detectArchiveType(archivePath);
+
+      switch (archiveType) {
+        case ArchiveType.zip:
+        case ArchiveType.tar:
+        case ArchiveType.gzip:
+        case ArchiveType.bzip2:
+          // For archive library supported types, extract all and find the file
+          return await _extractSpecificFileNative(
+            archivePath,
+            fileInArchive,
+            destinationPath,
+            archiveType,
+          );
+        case ArchiveType.sevenZip:
+        case ArchiveType.rar:
+          // For 7z and RAR, use system tools
+          return await _extractSpecificFileUsingSystemTools(
+            archivePath,
+            fileInArchive,
+            destinationPath,
+            archiveType,
+          );
+        case ArchiveType.unknown:
+          return false;
+      }
+    } catch (e) {
+      print('Error extracting specific file: $e');
+      return false;
+    }
+  }
+
+  /// Extracts specific file using native archive library
+  static Future<bool> _extractSpecificFileNative(
+    String archivePath,
+    String fileInArchive,
+    String destinationPath,
+    ArchiveType archiveType,
+  ) async {
+    try {
+      final bytes = await File(archivePath).readAsBytes();
+      Archive? archive;
+
+      switch (archiveType) {
+        case ArchiveType.zip:
+          archive = ZipDecoder().decodeBytes(bytes);
+          break;
+        case ArchiveType.tar:
+          archive = TarDecoder().decodeBytes(bytes);
+          break;
+        case ArchiveType.gzip:
+          final decompressed = GZipDecoder().decodeBytes(bytes);
+          final fileName = path.basenameWithoutExtension(archivePath);
+          if (fileName.endsWith('.tar')) {
+            archive = TarDecoder().decodeBytes(decompressed);
+          }
+          break;
+        case ArchiveType.bzip2:
+          final decompressed = BZip2Decoder().decodeBytes(bytes);
+          final fileName = path.basenameWithoutExtension(archivePath);
+          if (fileName.endsWith('.tar')) {
+            archive = TarDecoder().decodeBytes(decompressed);
+          }
+          break;
+        default:
+          return false;
+      }
+
+      if (archive == null) return false;
+
+      // Find and extract the specific file
+      for (final file in archive) {
+        if (file.name == fileInArchive && file.isFile) {
+          final content = file.content as List<int>;
+          final outputPath = path.join(destinationPath, path.basename(fileInArchive));
+          final outFile = File(outputPath);
+          await outFile.create(recursive: true);
+          await outFile.writeAsBytes(content);
+          return true;
+        }
+      }
+
+      return false;
+    } catch (e) {
+      print('Error in native specific file extraction: $e');
+      return false;
+    }
+  }
+
+  /// Extracts specific file using system tools
+  static Future<bool> _extractSpecificFileUsingSystemTools(
+    String archivePath,
+    String fileInArchive,
+    String destinationPath,
+    ArchiveType type,
+  ) async {
+    try {
+      if (!Platform.isMacOS && !Platform.isLinux) {
+        return false;
+      }
+
+      String command;
+      List<String> args;
+
+      if (type == ArchiveType.sevenZip) {
+        command = AppConstants.tool7zip;
+        args = ['e', archivePath, '-o$destinationPath', fileInArchive, '-y'];
+      } else if (type == ArchiveType.rar) {
+        command = AppConstants.toolUnrar;
+        args = ['e', '-o+', archivePath, fileInArchive, destinationPath];
+      } else {
+        return false;
+      }
+
+      final result = await Process.run(command, args).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () => ProcessResult(0, 124, '', 'Timeout'),
+      );
+
+      return result.exitCode == 0;
+    } catch (e) {
+      print('Error extracting specific file with system tools: $e');
+      return false;
+    }
+  }
+
   /// Lists archive contents using system tools
   static Future<List<String>> _listUsingSystemTools(
     String archivePath,
