@@ -42,3 +42,23 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Environment files (keep templates only)
+.env
+.env.local
+.env.*.local
+
+# Code generation
+**/*.g.dart
+**/*.freezed.dart
+**/*.config.dart
+
+# Localization
+*.gen.dart
+
+# Mason
+.mason/
+
+# Hive
+*.hive
+*.lock
