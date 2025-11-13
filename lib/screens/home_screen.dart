@@ -5,6 +5,7 @@ import 'package:path/path.dart' as path;
 import '../services/archive_service.dart';
 import '../utils/system_tools_checker.dart';
 import '../common/constants.dart';
+import '../widgets/cloud_upload_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -218,7 +219,11 @@ class _HomeScreenState extends State<HomeScreen> {
           });
 
           if (success) {
-            _showSuccessDialog('Compression Complete', 'Archive created at:\n$saveResult');
+            _showSuccessDialog(
+              'Compression Complete',
+              'Archive created at:\n$saveResult',
+              filePath: saveResult,
+            );
           } else {
             String errorMessage = 'Could not create the archive.';
             if (requiredTool != null) {
@@ -289,7 +294,11 @@ class _HomeScreenState extends State<HomeScreen> {
           });
 
           if (success) {
-            _showSuccessDialog('Compression Complete', 'Archive created at:\n$saveResult');
+            _showSuccessDialog(
+              'Compression Complete',
+              'Archive created at:\n$saveResult',
+              filePath: saveResult,
+            );
           } else {
             String errorMessage = 'Could not create the archive.';
             if (requiredTool != null) {
@@ -372,7 +381,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showSuccessDialog(String title, String message) {
+  void _showSuccessDialog(String title, String message, {String? filePath}) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -388,6 +397,24 @@ class _HomeScreenState extends State<HomeScreen> {
         title: Text(title),
         content: Text(message, textAlign: TextAlign.center),
         actions: [
+          if (filePath != null) ...[
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                CloudUploadDialog.show(context, filePath);
+              },
+              icon: const Icon(Icons.cloud_upload),
+              label: const Text('Share to Cloud'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFF6A00C),
+                side: const BorderSide(color: Color(0xFFF6A00C)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
           ElevatedButton(
             onPressed: () => Navigator.pop(context),
             style: ElevatedButton.styleFrom(
