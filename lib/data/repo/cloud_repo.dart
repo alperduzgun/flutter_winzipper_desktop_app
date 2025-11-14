@@ -1,10 +1,9 @@
 import 'dart:async';
 import 'dart:io';
+
 import 'package:http/http.dart' as http;
-import 'package:path/path.dart' as path_pkg;
-import '../../core/types/typedefs.dart';
-import '../dto/cloud/req_upload_dto.dart';
-import '../path/cloud_path.dart';
+import 'package:winzipper/data/dto/cloud/req_upload_dto.dart';
+import 'package:winzipper/data/path/cloud_path.dart';
 
 /// Repository interface for cloud operations
 abstract class ICloudRepo {
@@ -26,7 +25,7 @@ class CloudRepo implements ICloudRepo {
     ReqUploadDto dto, {
     Function(double progress)? onProgress,
   }) async {
-    int retries = 0;
+    var retries = 0;
 
     while (retries < _maxRetries) {
       try {
@@ -82,7 +81,7 @@ class CloudRepo implements ICloudRepo {
     request.fields['time'] = dto.retentionTime;
 
     // Add file with progress tracking
-    int bytesRead = 0;
+    var bytesRead = 0;
     final stream = file.openRead();
 
     final progressStream = stream.transform(
@@ -144,7 +143,7 @@ class CloudRepo implements ICloudRepo {
         '• Try again later',
       );
     } else if (statusCode == 429) {
-      throw SocketException('Rate limit exceeded');
+      throw const SocketException('Rate limit exceeded');
     } else if (statusCode >= 500) {
       throw SocketException('Server error: $statusCode');
     } else {

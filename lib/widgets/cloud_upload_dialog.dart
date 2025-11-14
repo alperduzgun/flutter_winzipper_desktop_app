@@ -6,7 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../cubits/cloud_upload_cubit.dart';
-import '../services/cloud_upload_service.dart';
+import '../cubits/cloud_upload_state.dart';
+import '../data/service/cloud_service.dart';
 
 part 'cloud_upload_dialog_content.dart';
 part 'cloud_upload_dialog_success.dart';
@@ -24,7 +25,7 @@ class CloudUploadDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => CloudUploadCubit(CloudUploadService())
+      create: (context) => CloudUploadCubit(context.read<ICloudService>())
         ..uploadFile(filePath),
       child: BlocBuilder<CloudUploadCubit, CloudUploadState>(
         builder: (context, state) {

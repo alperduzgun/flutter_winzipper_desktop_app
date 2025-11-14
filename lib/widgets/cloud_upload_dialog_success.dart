@@ -16,7 +16,7 @@ class _CloudUploadSuccessViewState extends State<_CloudUploadSuccessView> {
   bool _copied = false;
 
   void _copyToClipboard() {
-    Clipboard.setData(ClipboardData(text: widget.state.url));
+    Clipboard.setData(ClipboardData(text: widget.state.uploadModel.url));
     setState(() => _copied = true);
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) setState(() => _copied = false);
@@ -70,7 +70,7 @@ class _CloudUploadSuccessViewState extends State<_CloudUploadSuccessView> {
 
           // Filename
           Text(
-            widget.state.fileName,
+            widget.state.uploadModel.fileName,
             style: TextStyle(
               fontSize: 14,
               color: Colors.grey.shade700,
@@ -94,7 +94,7 @@ class _CloudUploadSuccessViewState extends State<_CloudUploadSuccessView> {
                 ),
               ),
               child: QrImageView(
-                data: widget.state.url,
+                data: widget.state.uploadModel.url,
                 version: QrVersions.auto,
                 size: 200,
               ),
@@ -126,7 +126,7 @@ class _CloudUploadSuccessViewState extends State<_CloudUploadSuccessView> {
               children: [
                 Expanded(
                   child: Text(
-                    widget.state.url,
+                    widget.state.uploadModel.url,
                     style: TextStyle(
                       fontSize: 13,
                       fontFamily: 'monospace',

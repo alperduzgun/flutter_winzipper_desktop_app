@@ -1,10 +1,10 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
-import '../../models/downloads_view_state.dart';
-import '../../models/downloads_callbacks.dart';
-import '../../../../utils/file_extensions.dart';
-import '../../../../utils/date_extensions.dart';
+import 'package:winzipper/feature/home/models/downloads_callbacks.dart';
+import 'package:winzipper/feature/home/models/downloads_view_state.dart';
+import 'package:winzipper/utils/file_extensions.dart';
 
 /// Downloads folder browser
 ///
@@ -13,9 +13,9 @@ import '../../../../utils/date_extensions.dart';
 /// - callbacks: All callback functions
 class DownloadsBrowserSection extends StatelessWidget {
   const DownloadsBrowserSection({
-    super.key,
     required this.state,
     required this.callbacks,
+    super.key,
   });
 
   final DownloadsViewState state;
@@ -68,7 +68,8 @@ class DownloadsBrowserSection extends StatelessWidget {
   }
 
   Widget _buildBreadcrumb() {
-    final parts = state.currentPath.split('/').where((p) => p.isNotEmpty).toList();
+    final parts =
+        state.currentPath.split('/').where((p) => p.isNotEmpty).toList();
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -141,7 +142,8 @@ class DownloadsBrowserSection extends StatelessWidget {
 
     return ListView.builder(
       itemCount: state.contents.length,
-      itemBuilder: (context, index) => _buildDownloadsRow(state.contents[index], index),
+      itemBuilder: (context, index) =>
+          _buildDownloadsRow(state.contents[index], index),
     );
   }
 
@@ -155,33 +157,30 @@ class DownloadsBrowserSection extends StatelessWidget {
     // Format date
     final modified = stat.modified;
     final now = DateTime.now();
-    String dateStr;
     if (modified.year == now.year &&
         modified.month == now.month &&
         modified.day == now.day) {
-      dateStr = 'Today';
     } else if (modified.year == now.year &&
         modified.month == now.month &&
         modified.day == now.day - 1) {
-      dateStr = 'Yesterday';
-    } else {
-      dateStr = '${modified.day} ${modified.month.monthName}';
-    }
+    } else {}
 
     // Check if it's an archive file
     final ext = path.extension(name).toLowerCase();
-    final isArchive = ['.zip', '.rar', '.7z', '.tar', '.gz', '.bz2'].contains(ext);
+    final isArchive =
+        ['.zip', '.rar', '.7z', '.tar', '.gz', '.bz2'].contains(ext);
 
     return MouseRegion(
       onEnter: (_) => callbacks.onHoverChanged(index),
       onExit: (_) => callbacks.onHoverChanged(null),
       child: InkWell(
-        onTap: () => callbacks.onSelectChanged(state.selectedIndex == index ? null : index),
-        onDoubleTap: () async {
+        onTap: () => callbacks
+            .onSelectChanged(state.selectedIndex == index ? null : index),
+        onDoubleTap: () {
           if (isFolder) {
             callbacks.onNavigateToFolder(name);
           } else if (isArchive) {
-            await callbacks.onOpenArchive(entity.path);
+            callbacks.onOpenArchive(entity.path);
           }
         },
         child: Container(
@@ -223,7 +222,9 @@ class DownloadsBrowserSection extends StatelessWidget {
                   isFolder ? 'Folder' : name.fileKind,
                   style: TextStyle(
                     fontSize: 11,
-                    color: isSelected ? Colors.white.withOpacity(0.9) : const Color(0xFF6E6E73),
+                    color: isSelected
+                        ? Colors.white.withOpacity(0.9)
+                        : const Color(0xFF6E6E73),
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),

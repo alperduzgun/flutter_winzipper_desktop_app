@@ -16,8 +16,9 @@ Future<void> bootstrap(FutureOr<Widget> Function() builder) async {
   await Hive.initFlutter();
 
   // Initialize HydratedBloc for state persistence
+  final appDocDir = await getApplicationDocumentsDirectory();
   HydratedBloc.storage = await HydratedStorage.build(
-    storageDirectory: await getApplicationDocumentsDirectory(),
+    storageDirectory: HydratedStorageDirectory(appDocDir.path),
   );
 
   // Set BLoC observer for debugging

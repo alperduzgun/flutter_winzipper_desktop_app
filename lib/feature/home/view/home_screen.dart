@@ -1,20 +1,20 @@
 import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
-import '../../../common/constants.dart';
-import '../../../data/service/archive_service.dart';
-import '../../../utils/system_tools_checker.dart';
-import '../../../widgets/cloud_upload_dialog.dart';
-import '../../../services/dialog_service.dart';
-import '../../../utils/file_extensions.dart';
-import '../../../utils/archive_type_extension.dart';
-import '../models/archive_view_state.dart';
-import '../models/archive_callbacks.dart';
-import '../models/downloads_view_state.dart';
-import '../models/downloads_callbacks.dart';
-import 'widgets/archive_picker_section.dart';
-import 'widgets/downloads_browser_section.dart';
+import 'package:winzipper/common/constants.dart';
+import 'package:winzipper/data/service/archive_service.dart';
+import 'package:winzipper/feature/home/models/archive_callbacks.dart';
+import 'package:winzipper/feature/home/models/archive_view_state.dart';
+import 'package:winzipper/feature/home/models/downloads_callbacks.dart';
+import 'package:winzipper/feature/home/models/downloads_view_state.dart';
+import 'package:winzipper/feature/home/view/widgets/archive_picker_section.dart';
+import 'package:winzipper/feature/home/view/widgets/downloads_browser_section.dart';
+import 'package:winzipper/services/dialog_service.dart';
+import 'package:winzipper/utils/file_extensions.dart';
+import 'package:winzipper/utils/system_tools_checker.dart';
+import 'package:winzipper/widgets/cloud_upload_dialog.dart';
 
 /// Home Screen - Archive Management
 ///
@@ -85,9 +85,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadDownloadsFolder({String? subPath}) async {
     try {
       final basePath = '${Platform.environment['HOME']}/Downloads';
-      final fullPath = subPath == null || subPath.isEmpty
-          ? basePath
-          : '$basePath/$subPath';
+      final fullPath =
+          subPath == null || subPath.isEmpty ? basePath : '$basePath/$subPath';
       final dir = Directory(fullPath);
 
       if (await dir.exists()) {
@@ -100,8 +99,11 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     } catch (e) {
       if (mounted) {
-        DialogService.showError(context, 'Access Error',
-            'Cannot access downloads folder: $e');
+        DialogService.showError(
+          context,
+          'Access Error',
+          'Cannot access downloads folder: $e',
+        );
       }
     }
   }
@@ -131,12 +133,10 @@ class _HomeScreenState extends State<HomeScreen> {
               .basename(a.path)
               .toLowerCase()
               .compareTo(path.basename(b.path).toLowerCase());
-          break;
         case 'date':
           final aStat = a.statSync();
           final bStat = b.statSync();
           compare = aStat.modified.compareTo(bStat.modified);
-          break;
         case 'kind':
           final aIsDir = a is Directory;
           final bIsDir = b is Directory;
@@ -145,12 +145,10 @@ class _HomeScreenState extends State<HomeScreen> {
           } else {
             compare = aIsDir ? -1 : 1;
           }
-          break;
         case 'size':
           final aSize = a is File ? a.lengthSync() : 0;
           final bSize = b is File ? b.lengthSync() : 0;
           compare = aSize.compareTo(bSize);
-          break;
         default:
           compare = 0;
       }
@@ -319,7 +317,7 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           );
         } else {
-          String errorMessage = 'Could not extract the archive.';
+          var errorMessage = 'Could not extract the archive.';
           if (requiredTool != null) {
             errorMessage +=
                 '\n\n${SystemToolsChecker.getInstallationInstructions(requiredTool)}';
@@ -335,7 +333,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (mounted) {
         DialogService.showError(
-            context, 'Error', 'An unexpected error occurred:\n$e');
+          context,
+          'Error',
+          'An unexpected error occurred:\n$e',
+        );
       }
     }
   }
@@ -346,7 +347,6 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
-        type: FileType.any,
       );
 
       if (result == null || result.files.isEmpty) return;
@@ -358,7 +358,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (sourcePaths.isEmpty) return;
 
-      int totalSourceSize = 0;
+      var totalSourceSize = 0;
       for (final sourcePath in sourcePaths) {
         try {
           final file = File(sourcePath);
@@ -452,7 +452,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onCloudUpload: () => CloudUploadDialog.show(context, saveResult),
           );
         } else {
-          String errorMessage = 'Could not create the archive.';
+          var errorMessage = 'Could not create the archive.';
           if (requiredTool != null) {
             errorMessage +=
                 '\n\n${SystemToolsChecker.getInstallationInstructions(requiredTool)}';
@@ -468,7 +468,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (mounted) {
         DialogService.showError(
-            context, 'Error', 'An unexpected error occurred:\n$e');
+          context,
+          'Error',
+          'An unexpected error occurred:\n$e',
+        );
       }
     }
   }
@@ -480,7 +483,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final result = await FilePicker.platform.getDirectoryPath();
       if (result == null) return;
 
-      int directorySize = 0;
+      var directorySize = 0;
       try {
         final dir = Directory(result);
         if (await dir.exists()) {
@@ -579,7 +582,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onCloudUpload: () => CloudUploadDialog.show(context, saveResult),
           );
         } else {
-          String errorMessage = 'Could not create the archive.';
+          var errorMessage = 'Could not create the archive.';
           if (requiredTool != null) {
             errorMessage +=
                 '\n\n${SystemToolsChecker.getInstallationInstructions(requiredTool)}';
@@ -595,7 +598,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (mounted) {
         DialogService.showError(
-            context, 'Error', 'An unexpected error occurred:\n$e');
+          context,
+          'Error',
+          'An unexpected error occurred:\n$e',
+        );
       }
     }
   }
@@ -679,8 +685,8 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     final ext = path.extension(selectedItem).toLowerCase();
-    final isTextFile = ['.txt', '.md', '.json', '.xml', '.csv', '.log']
-        .contains(ext);
+    final isTextFile =
+        ['.txt', '.md', '.json', '.xml', '.csv', '.log'].contains(ext);
 
     if (!isTextFile) {
       DialogService.showError(
@@ -708,7 +714,10 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!success) {
         _safeSetState(() => _isLoading = false);
         DialogService.showError(
-            context, 'Preview Failed', 'Could not extract file for preview.');
+          context,
+          'Preview Failed',
+          'Could not extract file for preview.',
+        );
         return;
       }
 
@@ -719,7 +728,10 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!await file.exists()) {
         _safeSetState(() => _isLoading = false);
         DialogService.showError(
-            context, 'Preview Failed', 'Extracted file not found.');
+          context,
+          'Preview Failed',
+          'Extracted file not found.',
+        );
         return;
       }
 
@@ -758,7 +770,10 @@ class _HomeScreenState extends State<HomeScreen> {
       _safeSetState(() => _isLoading = false);
       if (mounted) {
         DialogService.showError(
-            context, 'Preview Error', 'An error occurred:\n$e');
+          context,
+          'Preview Error',
+          'An error occurred:\n$e',
+        );
       }
     }
   }
@@ -786,8 +801,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _previewNestedArchive(String archiveItemPath) async {
     try {
-      final tempDir =
-          Directory.systemTemp.createTempSync('winzipper_preview_');
+      final tempDir = Directory.systemTemp.createTempSync('winzipper_preview_');
 
       _safeSetState(() {
         _isLoading = true;
@@ -803,8 +817,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (!success) {
         _safeSetState(() => _isLoading = false);
-        DialogService.showError(context, 'Preview Failed',
-            'Could not extract the nested archive for preview.');
+        DialogService.showError(
+          context,
+          'Preview Failed',
+          'Could not extract the nested archive for preview.',
+        );
         return;
       }
 
@@ -814,8 +831,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (!await extractedFile.exists()) {
         _safeSetState(() => _isLoading = false);
-        DialogService.showError(context, 'Preview Failed',
-            'The extracted archive file was not found.');
+        DialogService.showError(
+          context,
+          'Preview Failed',
+          'The extracted archive file was not found.',
+        );
         return;
       }
 
@@ -850,21 +870,30 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (nestedContents.isEmpty) {
         _safeSetState(() => _isLoading = false);
-        DialogService.showError(context, 'Preview',
-            'The nested archive "$extractedFileName" is empty.');
+        DialogService.showError(
+          context,
+          'Preview',
+          'The nested archive "$extractedFileName" is empty.',
+        );
         return;
       }
 
       _safeSetState(() => _isLoading = false);
       if (mounted) {
         DialogService.showNestedArchivePreview(
-            context, extractedFileName, nestedContents);
+          context,
+          extractedFileName,
+          nestedContents,
+        );
       }
     } catch (e) {
       _safeSetState(() => _isLoading = false);
       if (mounted) {
         DialogService.showError(
-            context, 'Preview Error', 'An error occurred:\n$e');
+          context,
+          'Preview Error',
+          'An error occurred:\n$e',
+        );
       }
     }
   }
@@ -911,8 +940,9 @@ class _HomeScreenState extends State<HomeScreen> {
           _archiveContents = _getItemsInCurrentPath(_currentPath);
         } else {
           _archiveContents = _allArchiveContents
-              .where((item) =>
-                  item.toLowerCase().contains(query.toLowerCase()))
+              .where(
+                (item) => item.toLowerCase().contains(query.toLowerCase()),
+              )
               .toList();
         }
       }),

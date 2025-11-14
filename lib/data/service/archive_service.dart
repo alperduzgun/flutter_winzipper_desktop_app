@@ -1,10 +1,10 @@
 import 'dart:io';
+
 import 'package:archive/archive.dart';
 import 'package:path/path.dart' as path_pkg;
-import '../../core/types/typedefs.dart';
-import '../../utils/system_tools_checker.dart';
-import '../../common/constants.dart';
-import '../../feature/home/models/archive_view_state.dart';
+import 'package:winzipper/common/constants.dart';
+import 'package:winzipper/feature/home/models/archive_view_state.dart';
+import 'package:winzipper/utils/system_tools_checker.dart';
 
 /// Service interface for archive operations
 abstract class IArchiveService {
@@ -96,13 +96,12 @@ class ArchiveService implements IArchiveService {
         case ArchiveType.tar:
           archive = TarDecoder().decodeBytes(bytes);
         case ArchiveType.gzip:
-          final decompressed = GZipDecoder().decodeBytes(bytes);
+          final decompressed = const GZipDecoder().decodeBytes(bytes);
           final fileName = path_pkg.basenameWithoutExtension(archivePath);
           if (fileName.endsWith('.tar')) {
             archive = TarDecoder().decodeBytes(decompressed);
           } else {
-            final outputFile =
-                File(path_pkg.join(destinationPath, fileName));
+            final outputFile = File(path_pkg.join(destinationPath, fileName));
             await outputFile.create(recursive: true);
             await outputFile.writeAsBytes(decompressed);
             return true;
@@ -113,8 +112,7 @@ class ArchiveService implements IArchiveService {
           if (fileName.endsWith('.tar')) {
             archive = TarDecoder().decodeBytes(decompressed);
           } else {
-            final outputFile =
-                File(path_pkg.join(destinationPath, fileName));
+            final outputFile = File(path_pkg.join(destinationPath, fileName));
             await outputFile.create(recursive: true);
             await outputFile.writeAsBytes(decompressed);
             return true;
@@ -130,10 +128,8 @@ class ArchiveService implements IArchiveService {
           throw Exception('Unknown archive type');
       }
 
-      if (archive != null) {
-        await _extractArchiveToDirectory(archive, destinationPath);
-        return true;
-      }
+      await _extractArchiveToDirectory(archive, destinationPath);
+      return true;
 
       return false;
     } catch (e) {
@@ -145,8 +141,8 @@ class ArchiveService implements IArchiveService {
     Archive archive,
     String destinationPath,
   ) async {
-    int totalExtracted = 0;
-    int totalSize = 0;
+    var totalExtracted = 0;
+    var totalSize = 0;
 
     for (final file in archive) {
       if (totalExtracted >= AppConstants.maxFilesInArchive) {
@@ -248,10 +244,10 @@ class ArchiveService implements IArchiveService {
               FileSystemEntity.typeSync(sourcePaths[0]) ==
                   FileSystemEntityType.directory) {
             final tarData = TarEncoder().encode(archive);
-            encodedData = GZipEncoder().encode(tarData);
+            encodedData = const GZipEncoder().encode(tarData);
           } else {
             final fileBytes = await File(sourcePaths[0]).readAsBytes();
-            encodedData = GZipEncoder().encode(fileBytes);
+            encodedData = const GZipEncoder().encode(fileBytes);
           }
         case ArchiveType.bzip2:
           if (sourcePaths.length > 1 ||
@@ -274,12 +270,10 @@ class ArchiveService implements IArchiveService {
           throw Exception('Unknown archive type');
       }
 
-      if (encodedData != null) {
-        final outputFile = File(destinationArchivePath);
-        await outputFile.create(recursive: true);
-        await outputFile.writeAsBytes(encodedData);
-        return true;
-      }
+      final outputFile = File(destinationArchivePath);
+      await outputFile.create(recursive: true);
+      await outputFile.writeAsBytes(encodedData);
+      return true;
 
       return false;
     } catch (e) {
@@ -311,8 +305,7 @@ class ArchiveService implements IArchiveService {
         final relativePath =
             path_pkg.relative(entity.path, from: directoryPath);
         final archivePath = path_pkg.join(baseDir, relativePath);
-        final archiveFile =
-            ArchiveFile(archivePath, bytes.length, bytes);
+        final archiveFile = ArchiveFile(archivePath, bytes.length, bytes);
         archive.addFile(archiveFile);
       }
     }
@@ -373,7 +366,7 @@ class ArchiveService implements IArchiveService {
         case ArchiveType.tar:
           archive = TarDecoder().decodeBytes(bytes);
         case ArchiveType.gzip:
-          final decompressed = GZipDecoder().decodeBytes(bytes);
+          final decompressed = const GZipDecoder().decodeBytes(bytes);
           final fileName = path_pkg.basenameWithoutExtension(archivePath);
           if (fileName.endsWith('.tar')) {
             archive = TarDecoder().decodeBytes(decompressed);
@@ -395,9 +388,7 @@ class ArchiveService implements IArchiveService {
           throw Exception('Unknown archive type');
       }
 
-      if (archive != null) {
-        return archive.map((file) => file.name).toList();
-      }
+      return archive.map((file) => file.name).toList();
 
       return [];
     } catch (e) {
@@ -459,7 +450,7 @@ class ArchiveService implements IArchiveService {
       case ArchiveType.tar:
       case ArchiveType.gzip:
       case ArchiveType.bzip2:
-        return await _extractSpecificFileNative(
+        return _extractSpecificFileNative(
           archivePath,
           fileInArchive,
           destinationPath,
@@ -467,7 +458,7 @@ class ArchiveService implements IArchiveService {
         );
       case ArchiveType.sevenZip:
       case ArchiveType.rar:
-        return await _extractSpecificFileUsingSystemTools(
+        return _extractSpecificFileUsingSystemTools(
           archivePath,
           fileInArchive,
           destinationPath,
@@ -494,7 +485,7 @@ class ArchiveService implements IArchiveService {
         case ArchiveType.tar:
           archive = TarDecoder().decodeBytes(bytes);
         case ArchiveType.gzip:
-          final decompressed = GZipDecoder().decodeBytes(bytes);
+          final decompressed = const GZipDecoder().decodeBytes(bytes);
           final fileName = path_pkg.basenameWithoutExtension(archivePath);
           if (fileName.endsWith('.tar')) {
             archive = TarDecoder().decodeBytes(decompressed);

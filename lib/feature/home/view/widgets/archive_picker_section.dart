@@ -1,10 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
-import '../../models/archive_view_state.dart';
-import '../../models/archive_callbacks.dart';
-import '../../../../common/constants.dart';
-import '../../../../utils/file_extensions.dart';
-import '../../../../utils/archive_type_extension.dart';
+import 'package:winzipper/common/constants.dart';
+import 'package:winzipper/feature/home/models/archive_callbacks.dart';
+import 'package:winzipper/feature/home/models/archive_view_state.dart';
+import 'package:winzipper/utils/file_extensions.dart';
 
 /// Archive picker and content viewer
 ///
@@ -14,10 +15,10 @@ import '../../../../utils/archive_type_extension.dart';
 /// - searchController: TextEditingController (cannot be in state)
 class ArchivePickerSection extends StatelessWidget {
   const ArchivePickerSection({
-    super.key,
     required this.state,
     required this.callbacks,
     required this.searchController,
+    super.key,
   });
 
   final ArchiveViewState state;
@@ -31,7 +32,7 @@ class ArchivePickerSection extends StatelessWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildTopToolbar(),
+          _buildTopToolbar(context),
           if (state.isLoading)
             Expanded(child: _buildLoadingState())
           else if (state.archiveContents.isNotEmpty)
@@ -43,7 +44,7 @@ class ArchivePickerSection extends StatelessWidget {
     );
   }
 
-  Widget _buildTopToolbar() {
+  Widget _buildTopToolbar(BuildContext context) {
     final fileName = state.selectedFilePath != null
         ? path.basename(state.selectedFilePath!)
         : 'Product Files.rar';
@@ -117,14 +118,18 @@ class ArchivePickerSection extends StatelessWidget {
               Icon(
                 icon,
                 size: 22,
-                color: isDisabled ? const Color(0xFFBDBDC1) : const Color(0xFF6E6E73),
+                color: isDisabled
+                    ? const Color(0xFFBDBDC1)
+                    : const Color(0xFF6E6E73),
               ),
               const SizedBox(height: 2),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 10,
-                  color: isDisabled ? const Color(0xFFBDBDC1) : const Color(0xFF6E6E73),
+                  color: isDisabled
+                      ? const Color(0xFFBDBDC1)
+                      : const Color(0xFF6E6E73),
                   fontWeight: FontWeight.w400,
                 ),
               ),
@@ -141,18 +146,18 @@ class ArchivePickerSection extends StatelessWidget {
       child: PopupMenuButton<String>(
         offset: const Offset(0, 40),
         tooltip: 'Compress',
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
+              Icon(
                 Icons.compress,
                 size: 22,
                 color: Color(0xFF6E6E73),
               ),
-              const SizedBox(height: 2),
-              const Text(
+              SizedBox(height: 2),
+              Text(
                 'Compress',
                 style: TextStyle(
                   fontSize: 10,
@@ -168,7 +173,8 @@ class ArchivePickerSection extends StatelessWidget {
             value: 'files',
             child: Row(
               children: [
-                Icon(Icons.insert_drive_file, size: 18, color: Color(0xFF6E6E73)),
+                Icon(Icons.insert_drive_file,
+                    size: 18, color: Color(0xFF6E6E73)),
                 SizedBox(width: 12),
                 Text('Compress Files...'),
               ],
@@ -221,7 +227,8 @@ class ArchivePickerSection extends StatelessWidget {
   }
 
   Widget _buildArchiveContents() {
-    final folders = state.archiveContents.where((item) => item.endsWith('/')).length;
+    final folders =
+        state.archiveContents.where((item) => item.endsWith('/')).length;
     final files = state.archiveContents.length - folders;
 
     return Container(
@@ -233,7 +240,8 @@ class ArchivePickerSection extends StatelessWidget {
           AnimatedSize(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeInOut,
-            child: state.isSearching ? _buildSearchBar() : const SizedBox.shrink(),
+            child:
+                state.isSearching ? _buildSearchBar() : const SizedBox.shrink(),
           ),
           _buildTableHeader(),
           Expanded(
@@ -349,7 +357,8 @@ class ArchivePickerSection extends StatelessWidget {
           for (int i = 0; i < pathSegments.length; i++) ...[
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 4),
-              child: Icon(Icons.chevron_right, size: 12, color: Color(0xFFC7C7CC)),
+              child:
+                  Icon(Icons.chevron_right, size: 12, color: Color(0xFFC7C7CC)),
             ),
             InkWell(
               onTap: () {
@@ -373,7 +382,8 @@ class ArchivePickerSection extends StatelessWidget {
           const Spacer(),
           PopupMenuButton<String>(
             padding: EdgeInsets.zero,
-            icon: const Icon(Icons.arrow_drop_down, size: 18, color: Color(0xFF8E8E93)),
+            icon: const Icon(Icons.arrow_drop_down,
+                size: 18, color: Color(0xFF8E8E93)),
             itemBuilder: (context) => [
               const PopupMenuItem(value: 'sort', child: Text('Sort by...')),
             ],
@@ -387,8 +397,10 @@ class ArchivePickerSection extends StatelessWidget {
     final searchResults = state.searchQuery.isEmpty
         ? state.archiveContents.length
         : state.allArchiveContents
-            .where((item) =>
-                item.toLowerCase().contains(state.searchQuery.toLowerCase()))
+            .where(
+              (item) =>
+                  item.toLowerCase().contains(state.searchQuery.toLowerCase()),
+            )
             .length;
 
     return Container(
@@ -415,14 +427,18 @@ class ArchivePickerSection extends StatelessWidget {
                 style: const TextStyle(fontSize: 12, color: Color(0xFF000000)),
                 decoration: InputDecoration(
                   hintText: 'Search in archive...',
-                  hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
-                  prefixIcon: const Icon(Icons.search, size: 16, color: Color(0xFF8E8E93)),
+                  hintStyle:
+                      const TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
+                  prefixIcon: const Icon(Icons.search,
+                      size: 16, color: Color(0xFF8E8E93)),
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   isDense: true,
                   suffixIcon: state.searchQuery.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.close, size: 14, color: Color(0xFF8E8E93)),
+                          icon: const Icon(Icons.close,
+                              size: 14, color: Color(0xFF8E8E93)),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                           onPressed: () {
@@ -469,7 +485,8 @@ class ArchivePickerSection extends StatelessWidget {
                     ),
                   ),
                   SizedBox(width: 4),
-                  Icon(Icons.keyboard_arrow_up, size: 14, color: Color(0xFF0066FF)),
+                  Icon(Icons.keyboard_arrow_up,
+                      size: 14, color: Color(0xFF0066FF)),
                 ],
               ),
             ),
@@ -544,11 +561,13 @@ class ArchivePickerSection extends StatelessWidget {
       onExit: (_) => callbacks.onHoverChanged(null),
       child: InkWell(
         onTap: () {
-          callbacks.onSelectChanged(state.selectedIndex == index ? null : index);
+          callbacks
+              .onSelectChanged(state.selectedIndex == index ? null : index);
         },
         onDoubleTap: () {
           if (isFolder) {
-            final folderPath = item.endsWith('/') ? item.substring(0, item.length - 1) : item;
+            final folderPath =
+                item.endsWith('/') ? item.substring(0, item.length - 1) : item;
             callbacks.onNavigateToFolder(folderPath);
           } else if (isZipFile) {
             callbacks.onPreviewNestedArchive(item);
@@ -593,7 +612,9 @@ class ArchivePickerSection extends StatelessWidget {
                   'Yesterday, 22:34',
                   style: TextStyle(
                     fontSize: 11,
-                    color: isSelected ? Colors.white.withOpacity(0.9) : const Color(0xFF6E6E73),
+                    color: isSelected
+                        ? Colors.white.withOpacity(0.9)
+                        : const Color(0xFF6E6E73),
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -604,7 +625,9 @@ class ArchivePickerSection extends StatelessWidget {
                   isFolder ? 'Folder' : fileName.fileKind,
                   style: TextStyle(
                     fontSize: 11,
-                    color: isSelected ? Colors.white.withOpacity(0.9) : const Color(0xFF6E6E73),
+                    color: isSelected
+                        ? Colors.white.withOpacity(0.9)
+                        : const Color(0xFF6E6E73),
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -616,7 +639,9 @@ class ArchivePickerSection extends StatelessWidget {
                   textAlign: TextAlign.right,
                   style: TextStyle(
                     fontSize: 11,
-                    color: isSelected ? Colors.white.withOpacity(0.9) : const Color(0xFF6E6E73),
+                    color: isSelected
+                        ? Colors.white.withOpacity(0.9)
+                        : const Color(0xFF6E6E73),
                   ),
                 ),
               ),

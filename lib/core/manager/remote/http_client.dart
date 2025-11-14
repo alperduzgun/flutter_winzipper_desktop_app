@@ -1,7 +1,5 @@
 import 'package:dio/dio.dart';
-import '../../config/api_options.dart';
-import '../../config/app_flavor.dart';
-import '../../types/typedefs.dart';
+import 'package:winzipper/core/config/app_flavor.dart';
 
 /// HTTP client for making API requests
 class HttpClient {
@@ -48,7 +46,6 @@ class HttpClient {
         LogInterceptor(
           requestBody: true,
           responseBody: true,
-          error: true,
         ),
       );
     }

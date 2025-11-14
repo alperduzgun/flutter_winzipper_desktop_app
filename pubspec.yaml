@@ -22,7 +22,7 @@ dependencies:
   equatable: ^2.0.5
 
   # Navigation
-  go_router: ^16.1.0
+  go_router: ^14.0.0
 
   # Networking
   http: ^1.1.0
@@ -45,7 +45,7 @@ dependencies:
   # File Operations
   file_picker: ^6.1.1
   file_selector_macos: ^0.9.0+8
-  archive: ^3.6.1
+  archive: ^4.0.0
   path: ^1.8.3
   path_provider: ^2.1.2
 
@@ -58,10 +58,10 @@ dev_dependencies:
     sdk: flutter
 
   # Flavors
-  flutter_flavorizr: ^2.4.1
+  flutter_flavorizr: ^2.2.0
 
   # Linting
-  very_good_analysis: ^9.0.0
+  very_good_analysis: ^6.0.0
 
 flutter:
   uses-material-design: true
