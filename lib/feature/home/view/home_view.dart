@@ -6,7 +6,7 @@ import 'dart:io';
 import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'package:flutter/material.dart';
 import '../../../core/style/app_theme.dart';
-import '../../../screens/home_screen.dart';
+import 'home_screen.dart';
 
 /// Home feature - Main screen with sidebar and content
 class HomeView extends StatelessWidget {
