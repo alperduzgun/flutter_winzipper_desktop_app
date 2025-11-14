@@ -1,68 +1,28 @@
-part of '../home_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:path/path.dart' as path;
+import '../../models/archive_view_state.dart';
+import '../../models/archive_callbacks.dart';
+import '../../../../common/constants.dart';
+import '../../../../utils/file_extensions.dart';
+import '../../../../utils/archive_type_extension.dart';
 
-/// Archive picker and content viewer (private to HomeScreen)
+/// Archive picker and content viewer
 ///
-/// Single Responsibility: Display archive contents and actions
-class _ArchivePickerSection extends StatelessWidget {
-  const _ArchivePickerSection({
-    required this.selectedFilePath,
-    required this.archiveContents,
-    required this.allArchiveContents,
-    required this.isLoading,
-    required this.statusMessage,
-    required this.currentArchiveType,
-    required this.currentPath,
-    required this.isSearching,
-    required this.searchQuery,
+/// Reduced from 28 parameters to 3
+/// - state: All view state data
+/// - callbacks: All callback functions
+/// - searchController: TextEditingController (cannot be in state)
+class ArchivePickerSection extends StatelessWidget {
+  const ArchivePickerSection({
+    super.key,
+    required this.state,
+    required this.callbacks,
     required this.searchController,
-    required this.selectedIndex,
-    required this.hoveredIndex,
-    required this.onPickFile,
-    required this.onExtract,
-    required this.onCloudUpload,
-    required this.onNavigateToFolder,
-    required this.onNavigateBack,
-    required this.onViewFile,
-    required this.onShowFileInfo,
-    required this.onPreviewNestedArchive,
-    required this.onSearchChanged,
-    required this.onSearchToggle,
-    required this.onHoverChanged,
-    required this.onSelectChanged,
-    required this.getFileIcon,
-    required this.getFileKind,
-    required this.getFileColor,
-    required this.getArchiveTypeLabel,
   });
 
-  final String? selectedFilePath;
-  final List<String> archiveContents;
-  final List<String> allArchiveContents;
-  final bool isLoading;
-  final String statusMessage;
-  final ArchiveType currentArchiveType;
-  final String currentPath;
-  final bool isSearching;
-  final String searchQuery;
+  final ArchiveViewState state;
+  final ArchiveCallbacks callbacks;
   final TextEditingController searchController;
-  final int? selectedIndex;
-  final int? hoveredIndex;
-  final VoidCallback onPickFile;
-  final VoidCallback onExtract;
-  final VoidCallback onCloudUpload;
-  final Function(String) onNavigateToFolder;
-  final VoidCallback onNavigateBack;
-  final VoidCallback onViewFile;
-  final VoidCallback onShowFileInfo;
-  final Function(String) onPreviewNestedArchive;
-  final Function(String) onSearchChanged;
-  final Function(bool) onSearchToggle;
-  final Function(int?) onHoverChanged;
-  final Function(int?) onSelectChanged;
-  final IconData Function(String) getFileIcon;
-  final String Function(String) getFileKind;
-  final Color Function(String) getFileColor;
-  final String Function() getArchiveTypeLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -71,12 +31,10 @@ class _ArchivePickerSection extends StatelessWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Top toolbar - always visible
           _buildTopToolbar(),
-          // Content
-          if (isLoading)
+          if (state.isLoading)
             Expanded(child: _buildLoadingState())
-          else if (archiveContents.isNotEmpty)
+          else if (state.archiveContents.isNotEmpty)
             Expanded(child: _buildArchiveContents())
           else
             Expanded(child: _buildEmptyState()),
@@ -85,10 +43,10 @@ class _ArchivePickerSection extends StatelessWidget {
     );
   }
 
-  // New top toolbar like macOS Finder - single row
   Widget _buildTopToolbar() {
-    final fileName = selectedFilePath != null ? path.basename(selectedFilePath!) : 'Product Files.rar';
-    final hasArchive = selectedFilePath != null;
+    final fileName = state.selectedFilePath != null
+        ? path.basename(state.selectedFilePath!)
+        : 'Product Files.rar';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -100,7 +58,6 @@ class _ArchivePickerSection extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Archive title
           Icon(Icons.archive, color: Colors.grey.shade600, size: 16),
           const SizedBox(width: 6),
           Text(
@@ -113,24 +70,38 @@ class _ArchivePickerSection extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(width: 24),
-          // Toolbar buttons
-          _buildToolbarButtonNew(Icons.folder_open, 'Open', () => onPickFile()),
-          _buildToolbarButtonNew(Icons.unarchive, 'Extract', hasArchive ? () => onExtract() : null),
-          _buildToolbarButtonNew(Icons.search, 'Find', hasArchive ? () {
-            onSearchToggle(true);
-          } : null),
-          _buildToolbarButtonNew(Icons.visibility_outlined, 'View',
-              selectedIndex != null ? () => onViewFile() : null),
-          _buildToolbarButtonNew(Icons.info_outline, 'Info',
-              selectedIndex != null ? () => onShowFileInfo() : null),
-          _buildToolbarButtonNew(Icons.cloud_upload_outlined, 'Share',
-              hasArchive ? () => onCloudUpload() : null),
+          _buildToolbarButton(Icons.folder_open, 'Open', callbacks.onPickFile),
+          _buildToolbarButton(
+            Icons.unarchive,
+            'Extract',
+            state.hasArchive ? callbacks.onExtract : null,
+          ),
+          _buildToolbarButton(
+            Icons.search,
+            'Find',
+            state.hasArchive ? () => callbacks.onSearchToggle(true) : null,
+          ),
+          _buildToolbarButton(
+            Icons.visibility_outlined,
+            'View',
+            state.selectedIndex != null ? callbacks.onViewFile : null,
+          ),
+          _buildToolbarButton(
+            Icons.info_outline,
+            'Info',
+            state.selectedIndex != null ? callbacks.onShowFileInfo : null,
+          ),
+          _buildToolbarButton(
+            Icons.cloud_upload_outlined,
+            'Share',
+            state.hasArchive ? callbacks.onCloudUpload : null,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildToolbarButtonNew(IconData icon, String label, VoidCallback? onTap) {
+  Widget _buildToolbarButton(IconData icon, String label, VoidCallback? onTap) {
     final isDisabled = onTap == null;
     return Padding(
       padding: const EdgeInsets.only(right: 16),
@@ -175,7 +146,7 @@ class _ArchivePickerSection extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              statusMessage,
+              state.statusMessage,
               style: const TextStyle(
                 fontSize: 12,
                 color: Color(0xFF6E6E73),
@@ -188,40 +159,31 @@ class _ArchivePickerSection extends StatelessWidget {
   }
 
   Widget _buildArchiveContents() {
-    final folders = archiveContents.where((item) => item.endsWith('/')).length;
-    final files = archiveContents.length - folders;
+    final folders = state.archiveContents.where((item) => item.endsWith('/')).length;
+    final files = state.archiveContents.length - folders;
 
     return Container(
       color: Colors.white,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Breadcrumb
           _buildBreadcrumb(),
-
-          // Search Bar - appears below breadcrumb with animation
           AnimatedSize(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeInOut,
-            child: isSearching ? _buildSearchBar() : const SizedBox.shrink(),
+            child: state.isSearching ? _buildSearchBar() : const SizedBox.shrink(),
           ),
-
-          // Table Header
           _buildTableHeader(),
-
-          // Table Content
           Expanded(
             child: ListView.builder(
-              itemCount: archiveContents.length,
+              itemCount: state.archiveContents.length,
               itemBuilder: (context, index) {
-                final item = archiveContents[index];
+                final item = state.archiveContents[index];
                 final isFolder = item.endsWith('/');
                 return _buildTableRow(item, isFolder, index);
               },
             ),
           ),
-
-          // Footer Summary
           _buildFooterSummary(folders, files),
         ],
       ),
@@ -259,7 +221,7 @@ class _ArchivePickerSection extends StatelessWidget {
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
-              onPressed: onPickFile,
+              onPressed: callbacks.onPickFile,
               icon: const Icon(Icons.file_open),
               label: const Text('Pick Archive File'),
               style: ElevatedButton.styleFrom(
@@ -278,12 +240,14 @@ class _ArchivePickerSection extends StatelessWidget {
   }
 
   Widget _buildBreadcrumb() {
-    if (isSearching) return const SizedBox.shrink();
+    if (state.isSearching) return const SizedBox.shrink();
 
-    final fileName = selectedFilePath != null ? path.basename(selectedFilePath!) : '';
-    final pathSegments = currentPath.isEmpty
+    final fileName = state.selectedFilePath != null
+        ? path.basename(state.selectedFilePath!)
+        : '';
+    final pathSegments = state.currentPath.isEmpty
         ? <String>[]
-        : currentPath.split('/').where((s) => s.isNotEmpty).toList();
+        : state.currentPath.split('/').where((s) => s.isNotEmpty).toList();
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -296,19 +260,21 @@ class _ArchivePickerSection extends StatelessWidget {
       child: Row(
         children: [
           InkWell(
-            onTap: currentPath.isEmpty ? null : onNavigateBack,
+            onTap: state.currentPath.isEmpty ? null : callbacks.onNavigateBack,
             child: Padding(
               padding: const EdgeInsets.all(4),
               child: Icon(
                 Icons.arrow_back_ios,
                 size: 12,
-                color: currentPath.isEmpty ? const Color(0xFFD1D1D6) : const Color(0xFF8E8E93),
+                color: state.currentPath.isEmpty
+                    ? const Color(0xFFD1D1D6)
+                    : const Color(0xFF8E8E93),
               ),
             ),
           ),
           const SizedBox(width: 4),
           InkWell(
-            onTap: () => onNavigateToFolder(''),
+            onTap: () => callbacks.onNavigateToFolder(''),
             child: Text(
               fileName,
               style: const TextStyle(
@@ -326,7 +292,7 @@ class _ArchivePickerSection extends StatelessWidget {
             InkWell(
               onTap: () {
                 final targetPath = pathSegments.sublist(0, i + 1).join('/');
-                onNavigateToFolder(targetPath);
+                callbacks.onNavigateToFolder(targetPath);
               },
               child: Text(
                 pathSegments[i],
@@ -356,11 +322,11 @@ class _ArchivePickerSection extends StatelessWidget {
   }
 
   Widget _buildSearchBar() {
-    final searchResults = searchQuery.isEmpty
-        ? archiveContents.length
-        : allArchiveContents
+    final searchResults = state.searchQuery.isEmpty
+        ? state.archiveContents.length
+        : state.allArchiveContents
             .where((item) =>
-                item.toLowerCase().contains(searchQuery.toLowerCase()))
+                item.toLowerCase().contains(state.searchQuery.toLowerCase()))
             .length;
 
     return Container(
@@ -392,23 +358,23 @@ class _ArchivePickerSection extends StatelessWidget {
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   isDense: true,
-                  suffixIcon: searchQuery.isNotEmpty
+                  suffixIcon: state.searchQuery.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.close, size: 14, color: Color(0xFF8E8E93)),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                           onPressed: () {
                             searchController.clear();
-                            onSearchChanged('');
+                            callbacks.onSearchChanged('');
                           },
                         )
                       : null,
                 ),
-                onChanged: onSearchChanged,
+                onChanged: callbacks.onSearchChanged,
               ),
             ),
           ),
-          if (searchQuery.isNotEmpty) ...[
+          if (state.searchQuery.isNotEmpty) ...[
             const SizedBox(width: 12),
             Text(
               '$searchResults ${searchResults == 1 ? 'result' : 'results'}',
@@ -423,8 +389,8 @@ class _ArchivePickerSection extends StatelessWidget {
           InkWell(
             onTap: () {
               searchController.clear();
-              onSearchChanged('');
-              onSearchToggle(false);
+              callbacks.onSearchChanged('');
+              callbacks.onSearchToggle(false);
             },
             borderRadius: BorderRadius.circular(4),
             child: const Padding(
@@ -504,26 +470,26 @@ class _ArchivePickerSection extends StatelessWidget {
 
   Widget _buildTableRow(String item, bool isFolder, int index) {
     final fileName = path.basename(item);
-    final isHovered = hoveredIndex == index;
-    final isSelected = selectedIndex == index;
+    final isHovered = state.hoveredIndex == index;
+    final isSelected = state.selectedIndex == index;
     final isZipFile = !isFolder &&
         (fileName.toLowerCase().endsWith('.zip') ||
             fileName.toLowerCase().endsWith('.rar') ||
             fileName.toLowerCase().endsWith('.7z'));
 
     return MouseRegion(
-      onEnter: (_) => onHoverChanged(index),
-      onExit: (_) => onHoverChanged(null),
+      onEnter: (_) => callbacks.onHoverChanged(index),
+      onExit: (_) => callbacks.onHoverChanged(null),
       child: InkWell(
         onTap: () {
-          onSelectChanged(selectedIndex == index ? null : index);
+          callbacks.onSelectChanged(state.selectedIndex == index ? null : index);
         },
         onDoubleTap: () {
           if (isFolder) {
             final folderPath = item.endsWith('/') ? item.substring(0, item.length - 1) : item;
-            onNavigateToFolder(folderPath);
+            callbacks.onNavigateToFolder(folderPath);
           } else if (isZipFile) {
-            onPreviewNestedArchive(item);
+            callbacks.onPreviewNestedArchive(item);
           }
         },
         child: Container(
@@ -538,13 +504,13 @@ class _ArchivePickerSection extends StatelessWidget {
           child: Row(
             children: [
               Icon(
-                isFolder ? Icons.folder : getFileIcon(fileName),
+                isFolder ? Icons.folder : fileName.fileIcon,
                 size: 16,
                 color: isFolder
                     ? const Color(0xFFFFBE0B)
                     : isSelected
                         ? Colors.white
-                        : getFileColor(fileName),
+                        : fileName.fileColor,
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -573,7 +539,7 @@ class _ArchivePickerSection extends StatelessWidget {
               Expanded(
                 flex: 2,
                 child: Text(
-                  isFolder ? 'Folder' : getFileKind(fileName),
+                  isFolder ? 'Folder' : fileName.fileKind,
                   style: TextStyle(
                     fontSize: 11,
                     color: isSelected ? Colors.white.withOpacity(0.9) : const Color(0xFF6E6E73),
@@ -600,7 +566,6 @@ class _ArchivePickerSection extends StatelessWidget {
   }
 
   Widget _buildFooterSummary(int folders, int files) {
-    final file = selectedFilePath != null ? File(selectedFilePath!) : null;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: const BoxDecoration(
@@ -612,9 +577,9 @@ class _ArchivePickerSection extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          if (file != null)
+          if (state.selectedFilePath != null)
             FutureBuilder<int>(
-              future: file.length(),
+              future: File(state.selectedFilePath!).length(),
               builder: (context, snapshot) {
                 final totalSize = snapshot.hasData
                     ? AppConstants.formatBytes(snapshot.data!)

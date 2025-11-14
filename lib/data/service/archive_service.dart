@@ -4,17 +4,7 @@ import 'package:path/path.dart' as path_pkg;
 import '../../core/types/typedefs.dart';
 import '../../utils/system_tools_checker.dart';
 import '../../common/constants.dart';
-
-/// Archive format types
-enum ArchiveType {
-  zip,
-  tar,
-  gzip,
-  bzip2,
-  sevenZip,
-  rar,
-  unknown,
-}
+import '../../feature/home/models/archive_view_state.dart';
 
 /// Service interface for archive operations
 abstract class IArchiveService {

@@ -1,44 +1,25 @@
-part of '../home_screen.dart';
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:path/path.dart' as path;
+import '../../models/downloads_view_state.dart';
+import '../../models/downloads_callbacks.dart';
+import '../../../../utils/file_extensions.dart';
+import '../../../../utils/date_extensions.dart';
 
-/// Downloads folder browser (private to HomeScreen)
+/// Downloads folder browser
 ///
-/// Single Responsibility: Browse and select files from Downloads
-class _DownloadsBrowserSection extends StatelessWidget {
-  const _DownloadsBrowserSection({
-    required this.contents,
-    required this.currentPath,
-    required this.hoveredIndex,
-    required this.selectedIndex,
-    required this.sortBy,
-    required this.sortAscending,
-    required this.onNavigateToFolder,
-    required this.onNavigateBack,
-    required this.onOpenArchive,
-    required this.onHoverChanged,
-    required this.onSelectChanged,
-    required this.onSortChanged,
-    required this.getFileIcon,
-    required this.getFileKind,
-    required this.getFileColor,
-    required this.getMonthName,
+/// Reduced from 16 parameters to 2
+/// - state: All view state data
+/// - callbacks: All callback functions
+class DownloadsBrowserSection extends StatelessWidget {
+  const DownloadsBrowserSection({
+    super.key,
+    required this.state,
+    required this.callbacks,
   });
 
-  final List<FileSystemEntity> contents;
-  final String currentPath;
-  final int? hoveredIndex;
-  final int? selectedIndex;
-  final String sortBy;
-  final bool sortAscending;
-  final void Function(String folderName) onNavigateToFolder;
-  final VoidCallback onNavigateBack;
-  final void Function(String filePath) onOpenArchive;
-  final void Function(int? index) onHoverChanged;
-  final void Function(int? index) onSelectChanged;
-  final void Function(String sortBy, bool ascending) onSortChanged;
-  final IconData Function(String) getFileIcon;
-  final String Function(String) getFileKind;
-  final Color Function(String) getFileColor;
-  final String Function(int) getMonthName;
+  final DownloadsViewState state;
+  final DownloadsCallbacks callbacks;
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +34,7 @@ class _DownloadsBrowserSection extends StatelessWidget {
         ),
         child: Column(
           children: [
-            _buildHeader(context),
+            _buildHeader(),
             const Divider(height: 1),
             _buildBreadcrumb(),
             const Divider(height: 1),
@@ -66,7 +47,7 @@ class _DownloadsBrowserSection extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.all(16),
       child: Row(
@@ -87,23 +68,23 @@ class _DownloadsBrowserSection extends StatelessWidget {
   }
 
   Widget _buildBreadcrumb() {
-    final parts = currentPath.split('/').where((p) => p.isNotEmpty).toList();
+    final parts = state.currentPath.split('/').where((p) => p.isNotEmpty).toList();
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
         children: [
-          if (currentPath.isNotEmpty)
+          if (state.currentPath.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.arrow_back, size: 18),
-              onPressed: onNavigateBack,
+              onPressed: callbacks.onNavigateBack,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
             ),
-          if (currentPath.isNotEmpty) const SizedBox(width: 8),
+          if (state.currentPath.isNotEmpty) const SizedBox(width: 8),
           Expanded(
             child: Text(
-              currentPath.isEmpty ? 'Downloads' : '.../${parts.last}',
+              state.currentPath.isEmpty ? 'Downloads' : '.../${parts.last}',
               style: const TextStyle(fontSize: 12),
               overflow: TextOverflow.ellipsis,
             ),
@@ -129,18 +110,18 @@ class _DownloadsBrowserSection extends StatelessWidget {
             child: _SortableHeader(
               label: 'Name',
               sortKey: 'name',
-              currentSort: sortBy,
-              ascending: sortAscending,
-              onSort: onSortChanged,
+              currentSort: state.sortBy,
+              ascending: state.sortAscending,
+              onSort: callbacks.onSortChanged,
             ),
           ),
           Expanded(
             child: _SortableHeader(
               label: 'Kind',
               sortKey: 'kind',
-              currentSort: sortBy,
-              ascending: sortAscending,
-              onSort: onSortChanged,
+              currentSort: state.sortBy,
+              ascending: state.sortAscending,
+              onSort: callbacks.onSortChanged,
             ),
           ),
         ],
@@ -149,7 +130,7 @@ class _DownloadsBrowserSection extends StatelessWidget {
   }
 
   Widget _buildFileList() {
-    if (contents.isEmpty) {
+    if (state.contents.isEmpty) {
       return const Center(
         child: Text(
           'Downloads folder is empty',
@@ -159,8 +140,8 @@ class _DownloadsBrowserSection extends StatelessWidget {
     }
 
     return ListView.builder(
-      itemCount: contents.length,
-      itemBuilder: (context, index) => _buildDownloadsRow(contents[index], index),
+      itemCount: state.contents.length,
+      itemBuilder: (context, index) => _buildDownloadsRow(state.contents[index], index),
     );
   }
 
@@ -168,19 +149,23 @@ class _DownloadsBrowserSection extends StatelessWidget {
     final name = path.basename(entity.path);
     final isFolder = entity is Directory;
     final stat = entity.statSync();
-    final isHovered = hoveredIndex == index;
-    final isSelected = selectedIndex == index;
+    final isHovered = state.hoveredIndex == index;
+    final isSelected = state.selectedIndex == index;
 
     // Format date
     final modified = stat.modified;
     final now = DateTime.now();
     String dateStr;
-    if (modified.year == now.year && modified.month == now.month && modified.day == now.day) {
+    if (modified.year == now.year &&
+        modified.month == now.month &&
+        modified.day == now.day) {
       dateStr = 'Today';
-    } else if (modified.year == now.year && modified.month == now.month && modified.day == now.day - 1) {
+    } else if (modified.year == now.year &&
+        modified.month == now.month &&
+        modified.day == now.day - 1) {
       dateStr = 'Yesterday';
     } else {
-      dateStr = '${modified.day} ${getMonthName(modified.month)}';
+      dateStr = '${modified.day} ${modified.month.monthName}';
     }
 
     // Check if it's an archive file
@@ -188,15 +173,15 @@ class _DownloadsBrowserSection extends StatelessWidget {
     final isArchive = ['.zip', '.rar', '.7z', '.tar', '.gz', '.bz2'].contains(ext);
 
     return MouseRegion(
-      onEnter: (_) => onHoverChanged(index),
-      onExit: (_) => onHoverChanged(null),
+      onEnter: (_) => callbacks.onHoverChanged(index),
+      onExit: (_) => callbacks.onHoverChanged(null),
       child: InkWell(
-        onTap: () => onSelectChanged(selectedIndex == index ? null : index),
+        onTap: () => callbacks.onSelectChanged(state.selectedIndex == index ? null : index),
         onDoubleTap: () async {
           if (isFolder) {
-            onNavigateToFolder(name);
+            callbacks.onNavigateToFolder(name);
           } else if (isArchive) {
-            await onOpenArchive(entity.path);
+            await callbacks.onOpenArchive(entity.path);
           }
         },
         child: Container(
@@ -211,13 +196,13 @@ class _DownloadsBrowserSection extends StatelessWidget {
           child: Row(
             children: [
               Icon(
-                isFolder ? Icons.folder : getFileIcon(name),
+                isFolder ? Icons.folder : name.fileIcon,
                 size: 16,
                 color: isFolder
                     ? const Color(0xFFFFBE0B)
                     : isSelected
                         ? Colors.white
-                        : getFileColor(name),
+                        : name.fileColor,
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -235,7 +220,7 @@ class _DownloadsBrowserSection extends StatelessWidget {
               Expanded(
                 flex: 2,
                 child: Text(
-                  isFolder ? 'Folder' : getFileKind(name),
+                  isFolder ? 'Folder' : name.fileKind,
                   style: TextStyle(
                     fontSize: 11,
                     color: isSelected ? Colors.white.withOpacity(0.9) : const Color(0xFF6E6E73),
@@ -251,7 +236,7 @@ class _DownloadsBrowserSection extends StatelessWidget {
   }
 }
 
-/// Sortable column header (private helper)
+/// Sortable column header
 class _SortableHeader extends StatelessWidget {
   const _SortableHeader({
     required this.label,
@@ -265,7 +250,7 @@ class _SortableHeader extends StatelessWidget {
   final String sortKey;
   final String currentSort;
   final bool ascending;
-  final void Function(String sortKey, bool ascending) onSort;
+  final void Function(String, bool) onSort;
 
   @override
   Widget build(BuildContext context) {
