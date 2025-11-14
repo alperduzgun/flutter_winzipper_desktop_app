@@ -17,6 +17,10 @@ class _DownloadsBrowserSection extends StatelessWidget {
     required this.onHoverChanged,
     required this.onSelectChanged,
     required this.onSortChanged,
+    required this.getFileIcon,
+    required this.getFileKind,
+    required this.getFileColor,
+    required this.getMonthName,
   });
 
   final List<FileSystemEntity> contents;
@@ -31,6 +35,10 @@ class _DownloadsBrowserSection extends StatelessWidget {
   final void Function(int? index) onHoverChanged;
   final void Function(int? index) onSelectChanged;
   final void Function(String sortBy, bool ascending) onSortChanged;
+  final IconData Function(String) getFileIcon;
+  final String Function(String) getFileKind;
+  final Color Function(String) getFileColor;
+  final String Function(int) getMonthName;
 
   @override
   Widget build(BuildContext context) {
@@ -142,101 +150,104 @@ class _DownloadsBrowserSection extends StatelessWidget {
 
   Widget _buildFileList() {
     if (contents.isEmpty) {
-      return Center(
+      return const Center(
         child: Text(
-          'No files',
-          style: TextStyle(color: Colors.grey.shade500),
+          'Downloads folder is empty',
+          style: TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
         ),
       );
     }
 
     return ListView.builder(
       itemCount: contents.length,
-      itemBuilder: (context, index) {
-        final entity = contents[index];
-        final isDir = entity is Directory;
-        final fileName = path.basename(entity.path);
-
-        // Chaos Engineering: Check if archive file
-        final isArchive = !isDir &&
-            ['zip', 'rar', '7z', 'tar', 'gz', 'bz2']
-                .any((ext) => fileName.toLowerCase().endsWith('.$ext'));
-
-        return MouseRegion(
-          onEnter: (_) => onHoverChanged(index),
-          onExit: (_) => onHoverChanged(null),
-          child: GestureDetector(
-            onTap: () {
-              onSelectChanged(index);
-              if (isDir) {
-                onNavigateToFolder(fileName);
-              } else if (isArchive) {
-                onOpenArchive(entity.path);
-              }
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              color: selectedIndex == index
-                  ? const Color(0xFFF6A00C).withOpacity(0.2)
-                  : hoveredIndex == index
-                      ? Colors.grey.shade200
-                      : null,
-              child: Row(
-                children: [
-                  Icon(
-                    isDir ? Icons.folder : _getFileIcon(fileName),
-                    size: 18,
-                    color: isDir
-                        ? Colors.amber.shade700
-                        : isArchive
-                            ? const Color(0xFFF6A00C)
-                            : Colors.grey.shade600,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    flex: 3,
-                    child: Text(
-                      fileName,
-                      style: const TextStyle(fontSize: 13),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      isDir ? 'Folder' : _getFileKind(fileName),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
+      itemBuilder: (context, index) => _buildDownloadsRow(contents[index], index),
     );
   }
 
-  IconData _getFileIcon(String fileName) {
-    final ext = fileName.split('.').last.toLowerCase();
-    switch (ext) {
-      case 'zip':
-      case 'rar':
-      case '7z':
-      case 'tar':
-      case 'gz':
-      case 'bz2':
-        return Icons.folder_zip;
-      default:
-        return Icons.insert_drive_file;
-    }
-  }
+  Widget _buildDownloadsRow(FileSystemEntity entity, int index) {
+    final name = path.basename(entity.path);
+    final isFolder = entity is Directory;
+    final stat = entity.statSync();
+    final isHovered = hoveredIndex == index;
+    final isSelected = selectedIndex == index;
 
-  String _getFileKind(String fileName) {
-    final ext = fileName.split('.').last.toLowerCase();
-    return ext.toUpperCase();
+    // Format date
+    final modified = stat.modified;
+    final now = DateTime.now();
+    String dateStr;
+    if (modified.year == now.year && modified.month == now.month && modified.day == now.day) {
+      dateStr = 'Today';
+    } else if (modified.year == now.year && modified.month == now.month && modified.day == now.day - 1) {
+      dateStr = 'Yesterday';
+    } else {
+      dateStr = '${modified.day} ${getMonthName(modified.month)}';
+    }
+
+    // Check if it's an archive file
+    final ext = path.extension(name).toLowerCase();
+    final isArchive = ['.zip', '.rar', '.7z', '.tar', '.gz', '.bz2'].contains(ext);
+
+    return MouseRegion(
+      onEnter: (_) => onHoverChanged(index),
+      onExit: (_) => onHoverChanged(null),
+      child: InkWell(
+        onTap: () => onSelectChanged(selectedIndex == index ? null : index),
+        onDoubleTap: () async {
+          if (isFolder) {
+            onNavigateToFolder(name);
+          } else if (isArchive) {
+            await onOpenArchive(entity.path);
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? const Color(0xFF0058D0)
+                : isHovered
+                    ? const Color(0xFFE8E8ED)
+                    : Colors.transparent,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isFolder ? Icons.folder : getFileIcon(name),
+                size: 16,
+                color: isFolder
+                    ? const Color(0xFFFFBE0B)
+                    : isSelected
+                        ? Colors.white
+                        : getFileColor(name),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 4,
+                child: Text(
+                  name,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isSelected ? Colors.white : const Color(0xFF000000),
+                    fontWeight: FontWeight.w400,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  isFolder ? 'Folder' : getFileKind(name),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isSelected ? Colors.white.withOpacity(0.9) : const Color(0xFF6E6E73),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

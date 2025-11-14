@@ -722,6 +722,180 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ========================================
+  // ARCHIVE NAVIGATION
+  // ========================================
+
+  List<String> _getItemsInCurrentPath(String basePath) {
+    final items = <String>{};
+    final prefix = basePath.isEmpty ? '' : '$basePath/';
+
+    for (final item in _allArchiveContents) {
+      if (item.startsWith(prefix)) {
+        final relativePath = item.substring(prefix.length);
+        if (relativePath.isEmpty) continue;
+
+        final parts = relativePath.split('/');
+        if (parts.length == 1 || (parts.length == 2 && parts[1].isEmpty)) {
+          items.add(item);
+        } else {
+          final folderName = parts[0];
+          items.add('$prefix$folderName/');
+        }
+      }
+    }
+
+    return items.toList()..sort();
+  }
+
+  void _navigateToFolder(String folderPath) {
+    _safeSetState(() {
+      if (_isSearching) {
+        _isSearching = false;
+        _searchQuery = '';
+        _searchController.clear();
+      }
+      _currentPath = folderPath;
+      _archiveContents = _getItemsInCurrentPath(folderPath);
+      _selectedIndex = null;
+    });
+  }
+
+  void _navigateBack() {
+    if (_currentPath.isEmpty) return;
+
+    final parts = _currentPath.split('/');
+    parts.removeLast();
+    final newPath = parts.isEmpty ? '' : parts.join('/');
+
+    _navigateToFolder(newPath);
+  }
+
+  void _clearSelection() {
+    _safeSetState(() {
+      _selectedFilePath = null;
+      _archiveContents = [];
+      _allArchiveContents = [];
+      _statusMessage = '';
+      _currentArchiveType = ArchiveType.unknown;
+      _currentPath = '';
+      _isSearching = false;
+      _searchQuery = '';
+      _searchController.clear();
+    });
+  }
+
+  // ========================================
+  // HELPER METHODS
+  // ========================================
+
+  IconData _getFileIcon(String fileName) {
+    final ext = path.extension(fileName).toLowerCase();
+    switch (ext) {
+      case '.pdf':
+        return Icons.picture_as_pdf;
+      case '.doc':
+      case '.docx':
+        return Icons.description;
+      case '.xls':
+      case '.xlsx':
+        return Icons.table_chart;
+      case '.txt':
+        return Icons.text_snippet;
+      case '.jpg':
+      case '.jpeg':
+      case '.png':
+      case '.gif':
+        return Icons.image;
+      case '.zip':
+      case '.rar':
+      case '.7z':
+        return Icons.folder_zip;
+      default:
+        return Icons.insert_drive_file;
+    }
+  }
+
+  String _getFileKind(String fileName) {
+    final ext = path.extension(fileName).toLowerCase();
+    switch (ext) {
+      case '.pdf':
+        return 'PDF Document';
+      case '.doc':
+      case '.docx':
+        return 'Microsoft Document';
+      case '.xls':
+      case '.xlsx':
+        return 'Microsoft Spreadsheet';
+      case '.txt':
+        return 'TXT Document';
+      case '.jpg':
+      case '.jpeg':
+      case '.png':
+      case '.gif':
+        return 'Image';
+      case '.zip':
+        return 'ZIP Archive';
+      case '.rar':
+        return 'RAR Archive';
+      case '.7z':
+        return '7-Zip Archive';
+      default:
+        return 'Document';
+    }
+  }
+
+  Color _getFileColor(String fileName) {
+    final ext = path.extension(fileName).toLowerCase();
+    switch (ext) {
+      case '.pdf':
+        return Colors.red.shade600;
+      case '.doc':
+      case '.docx':
+        return Colors.blue.shade700;
+      case '.xls':
+      case '.xlsx':
+        return Colors.green.shade700;
+      case '.txt':
+        return Colors.grey.shade700;
+      case '.jpg':
+      case '.jpeg':
+      case '.png':
+      case '.gif':
+        return Colors.purple.shade600;
+      case '.zip':
+      case '.rar':
+      case '.7z':
+        return const Color(0xFFF6A00C);
+      default:
+        return Colors.blue.shade600;
+    }
+  }
+
+  String _getMonthName(int month) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[month - 1];
+  }
+
+  String _getArchiveTypeLabel() {
+    switch (_currentArchiveType) {
+      case ArchiveType.zip:
+        return 'ZIP Archive';
+      case ArchiveType.rar:
+        return 'RAR Archive';
+      case ArchiveType.sevenZip:
+        return '7-Zip Archive';
+      case ArchiveType.tar:
+        return 'TAR Archive';
+      case ArchiveType.gzip:
+        return 'GZIP Archive';
+      case ArchiveType.bzip2:
+        return 'BZIP2 Archive';
+      default:
+        return 'Archive';
+    }
+  }
+
+  // ========================================
   // UI HELPERS
   // ========================================
 
@@ -731,12 +905,367 @@ class _HomeScreenState extends State<HomeScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        icon: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.red.shade50,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.error_outline, color: Colors.red, size: 40),
+        ),
         title: Text(title),
-        content: Text(message),
+        content: Text(message, textAlign: TextAlign.center),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('OK'),
+          ),
+        ],
+        actionsAlignment: MainAxisAlignment.center,
+      ),
+    );
+  }
+
+  // ========================================
+  // FILE OPERATIONS
+  // ========================================
+
+  Future<void> _viewSelectedFile() async {
+    if (_selectedIndex == null || _selectedIndex! >= _archiveContents.length) {
+      return;
+    }
+
+    final selectedItem = _archiveContents[_selectedIndex!];
+    if (selectedItem.endsWith('/')) {
+      _navigateToFolder(selectedItem.substring(0, selectedItem.length - 1));
+      return;
+    }
+
+    final ext = path.extension(selectedItem).toLowerCase();
+    final isTextFile = ['.txt', '.md', '.json', '.xml', '.csv', '.log'].contains(ext);
+
+    if (!isTextFile) {
+      _showErrorDialog(
+        'Preview Not Supported',
+        'File preview is only available for text files.\n\nTo view other files, extract the archive first.',
+      );
+      return;
+    }
+
+    try {
+      _safeSetState(() {
+        _isLoading = true;
+        _statusMessage = 'Loading file preview...';
+      });
+
+      final tempDir = Directory.systemTemp.createTempSync('winzipper_view_');
+      final service = ArchiveService();
+      final success = await service.extractSpecificFile(
+        _selectedFilePath!,
+        selectedItem,
+        tempDir.path,
+      );
+
+      if (!success) {
+        _safeSetState(() => _isLoading = false);
+        _showErrorDialog('Preview Failed', 'Could not extract file for preview.');
+        return;
+      }
+
+      final fileName = path.basename(selectedItem);
+      final filePath = path.join(tempDir.path, fileName);
+      final file = File(filePath);
+
+      if (!await file.exists()) {
+        _safeSetState(() => _isLoading = false);
+        _showErrorDialog('Preview Failed', 'Extracted file not found.');
+        return;
+      }
+
+      final content = await file.readAsString();
+      try {
+        await tempDir.delete(recursive: true);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+
+      _safeSetState(() => _isLoading = false);
+      if (mounted) {
+        _showFilePreviewDialog(fileName, content);
+      }
+    } catch (e) {
+      _safeSetState(() => _isLoading = false);
+      if (mounted) {
+        _showErrorDialog('Preview Error', 'An error occurred:\n$e');
+      }
+    }
+  }
+
+  void _showFilePreviewDialog(String fileName, String content) {
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(_getFileIcon(fileName), color: _getFileColor(fileName), size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(fileName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 700,
+          height: 500,
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: SingleChildScrollView(
+              child: SelectableText(
+                content,
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                  color: Colors.grey.shade900,
+                ),
+              ),
+            ),
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFileInfo() {
+    if (_selectedIndex == null || _selectedIndex! >= _archiveContents.length) {
+      return;
+    }
+
+    final selectedItem = _archiveContents[_selectedIndex!];
+    final fileName = path.basename(selectedItem);
+    final isFolder = selectedItem.endsWith('/');
+    final ext = path.extension(selectedItem);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF6A00C).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                isFolder ? Icons.folder : _getFileIcon(selectedItem),
+                color: isFolder ? const Color(0xFFF6A00C) : _getFileColor(selectedItem),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text('File Information', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 500,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildInfoRow('Name', fileName),
+              const Divider(),
+              _buildInfoRow('Type', isFolder ? 'Folder' : _getFileKind(fileName)),
+              if (!isFolder) ...[
+                const Divider(),
+                _buildInfoRow('Extension', ext.isEmpty ? 'None' : ext),
+              ],
+              const Divider(),
+              _buildInfoRow('Path', selectedItem),
+              const Divider(),
+              _buildInfoRow('Archive', path.basename(_selectedFilePath!)),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade700,
+              ),
+            ),
+          ),
+          Expanded(
+            child: SelectableText(
+              value,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _previewNestedArchive(String archiveItemPath) async {
+    try {
+      final tempDir = Directory.systemTemp.createTempSync('winzipper_preview_');
+
+      _safeSetState(() {
+        _isLoading = true;
+        _statusMessage = 'Extracting nested archive...';
+      });
+
+      final service = ArchiveService();
+      final success = await service.extractSpecificFile(
+        _selectedFilePath!,
+        archiveItemPath,
+        tempDir.path,
+      );
+
+      if (!success) {
+        _safeSetState(() => _isLoading = false);
+        _showErrorDialog('Preview Failed', 'Could not extract the nested archive for preview.');
+        return;
+      }
+
+      final extractedFileName = path.basename(archiveItemPath);
+      final extractedFilePath = path.join(tempDir.path, extractedFileName);
+      final extractedFile = File(extractedFilePath);
+
+      if (!await extractedFile.exists()) {
+        _safeSetState(() => _isLoading = false);
+        _showErrorDialog('Preview Failed', 'The extracted archive file was not found.');
+        return;
+      }
+
+      final nestedContents = await service.listArchiveContents(extractedFilePath);
+
+      try {
+        await tempDir.delete(recursive: true);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+
+      if (nestedContents.isEmpty) {
+        _safeSetState(() => _isLoading = false);
+        _showErrorDialog('Preview', 'The nested archive "$extractedFileName" is empty.');
+        return;
+      }
+
+      _safeSetState(() => _isLoading = false);
+      if (mounted) {
+        _showNestedArchivePreviewDialog(extractedFileName, nestedContents);
+      }
+    } catch (e) {
+      _safeSetState(() => _isLoading = false);
+      if (mounted) {
+        _showErrorDialog('Preview Error', 'An error occurred:\n$e');
+      }
+    }
+  }
+
+  void _showNestedArchivePreviewDialog(String archiveName, List<String> contents) {
+    if (!mounted) return;
+
+    final folders = contents.where((item) => item.endsWith('/')).length;
+    final files = contents.length - folders;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF6A00C).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.archive, color: Color(0xFFF6A00C), size: 24),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(archiveName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+                  Text('$folders folders, $files files', style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.normal)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 600,
+          height: 400,
+          child: ListView.builder(
+            itemCount: contents.length,
+            itemBuilder: (context, index) {
+              final item = contents[index];
+              final itemName = path.basename(item);
+              final isFolder = item.endsWith('/');
+              return ListTile(
+                leading: Icon(
+                  isFolder ? Icons.folder : _getFileIcon(itemName),
+                  size: 18,
+                  color: isFolder ? const Color(0xFFF6A00C) : _getFileColor(itemName),
+                ),
+                title: Text(itemName, style: const TextStyle(fontSize: 13)),
+                subtitle: Text(isFolder ? 'Folder' : _getFileKind(itemName), style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                dense: true,
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
           ),
         ],
       ),
@@ -769,6 +1298,10 @@ class _HomeScreenState extends State<HomeScreen> {
             _sortAscending = ascending;
             _sortDownloadsContents();
           }),
+          getFileIcon: _getFileIcon,
+          getFileKind: _getFileKind,
+          getFileColor: _getFileColor,
+          getMonthName: _getMonthName,
         ),
 
         const VerticalDivider(width: 1),
@@ -778,9 +1311,16 @@ class _HomeScreenState extends State<HomeScreen> {
           child: _ArchivePickerSection(
             selectedFilePath: _selectedFilePath,
             archiveContents: _archiveContents,
+            allArchiveContents: _allArchiveContents,
             isLoading: _isLoading,
             statusMessage: _statusMessage,
             currentArchiveType: _currentArchiveType,
+            currentPath: _currentPath,
+            isSearching: _isSearching,
+            searchQuery: _searchQuery,
+            searchController: _searchController,
+            selectedIndex: _selectedIndex,
+            hoveredIndex: _hoveredIndex,
             onPickFile: _pickArchiveFile,
             onExtract: _extractArchive,
             onCloudUpload: () {
@@ -788,6 +1328,28 @@ class _HomeScreenState extends State<HomeScreen> {
                 CloudUploadDialog.show(context, _selectedFilePath!);
               }
             },
+            onNavigateToFolder: _navigateToFolder,
+            onNavigateBack: _navigateBack,
+            onViewFile: _viewSelectedFile,
+            onShowFileInfo: _showFileInfo,
+            onPreviewNestedArchive: _previewNestedArchive,
+            onSearchChanged: (query) => _safeSetState(() {
+              _searchQuery = query;
+              if (query.isEmpty) {
+                _archiveContents = _getItemsInCurrentPath(_currentPath);
+              } else {
+                _archiveContents = _allArchiveContents
+                    .where((item) => item.toLowerCase().contains(query.toLowerCase()))
+                    .toList();
+              }
+            }),
+            onSearchToggle: (searching) => _safeSetState(() => _isSearching = searching),
+            onHoverChanged: (index) => _safeSetState(() => _hoveredIndex = index),
+            onSelectChanged: (index) => _safeSetState(() => _selectedIndex = index),
+            getFileIcon: _getFileIcon,
+            getFileKind: _getFileKind,
+            getFileColor: _getFileColor,
+            getArchiveTypeLabel: _getArchiveTypeLabel,
           ),
         ),
       ],
