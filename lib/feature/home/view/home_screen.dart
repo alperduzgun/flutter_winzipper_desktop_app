@@ -893,6 +893,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final archiveCallbacks = ArchiveCallbacks(
       onPickFile: _pickArchiveFile,
       onExtract: _extractArchive,
+      onCompressFiles: _compressFiles,
+      onCompressDirectory: _compressDirectory,
       onCloudUpload: () {
         if (_selectedFilePath != null) {
           CloudUploadDialog.show(context, _selectedFilePath!);

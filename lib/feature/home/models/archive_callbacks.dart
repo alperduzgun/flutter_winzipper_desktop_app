@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 /// Archive view callbacks
 ///
 /// Groups all callback functions to reduce parameter count
@@ -5,6 +7,8 @@ class ArchiveCallbacks {
   const ArchiveCallbacks({
     required this.onPickFile,
     required this.onExtract,
+    required this.onCompressFiles,
+    required this.onCompressDirectory,
     required this.onCloudUpload,
     required this.onNavigateToFolder,
     required this.onNavigateBack,
@@ -19,6 +23,8 @@ class ArchiveCallbacks {
 
   final VoidCallback onPickFile;
   final VoidCallback onExtract;
+  final VoidCallback onCompressFiles;
+  final VoidCallback onCompressDirectory;
   final VoidCallback onCloudUpload;
   final void Function(String) onNavigateToFolder;
   final VoidCallback onNavigateBack;

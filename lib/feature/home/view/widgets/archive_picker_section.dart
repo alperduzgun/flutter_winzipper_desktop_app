@@ -76,6 +76,7 @@ class ArchivePickerSection extends StatelessWidget {
             'Extract',
             state.hasArchive ? callbacks.onExtract : null,
           ),
+          _buildCompressButton(context),
           _buildToolbarButton(
             Icons.search,
             'Find',
@@ -130,6 +131,67 @@ class ArchivePickerSection extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildCompressButton(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 16),
+      child: PopupMenuButton<String>(
+        offset: const Offset(0, 40),
+        tooltip: 'Compress',
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.compress,
+                size: 22,
+                color: Color(0xFF6E6E73),
+              ),
+              const SizedBox(height: 2),
+              const Text(
+                'Compress',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Color(0xFF6E6E73),
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
+        ),
+        itemBuilder: (context) => [
+          const PopupMenuItem(
+            value: 'files',
+            child: Row(
+              children: [
+                Icon(Icons.insert_drive_file, size: 18, color: Color(0xFF6E6E73)),
+                SizedBox(width: 12),
+                Text('Compress Files...'),
+              ],
+            ),
+          ),
+          const PopupMenuItem(
+            value: 'directory',
+            child: Row(
+              children: [
+                Icon(Icons.folder, size: 18, color: Color(0xFF6E6E73)),
+                SizedBox(width: 12),
+                Text('Compress Directory...'),
+              ],
+            ),
+          ),
+        ],
+        onSelected: (value) {
+          if (value == 'files') {
+            callbacks.onCompressFiles();
+          } else if (value == 'directory') {
+            callbacks.onCompressDirectory();
+          }
+        },
       ),
     );
   }
