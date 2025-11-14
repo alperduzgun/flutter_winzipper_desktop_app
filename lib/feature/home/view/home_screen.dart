@@ -346,6 +346,29 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (sourcePaths.isEmpty) return;
 
+      // Chaos Engineering: Calculate total source size
+      int totalSourceSize = 0;
+      for (final sourcePath in sourcePaths) {
+        try {
+          final file = File(sourcePath);
+          if (await file.exists()) {
+            totalSourceSize += await file.length();
+          }
+        } catch (e) {
+          // Continue with other files
+        }
+      }
+
+      // Chaos Engineering: Check if total size is reasonable
+      if (totalSourceSize > AppConstants.maxArchiveSizeBytes * 2) {
+        _showErrorDialog(
+          'Files Too Large',
+          'Total size: ${AppConstants.formatBytes(totalSourceSize)}\n'
+          'Maximum: ${AppConstants.formatBytes(AppConstants.maxArchiveSizeBytes * 2)}',
+        );
+        return;
+      }
+
       final archiveName = await _showArchiveNameDialog();
       if (archiveName == null || archiveName.isEmpty) return;
 
@@ -355,6 +378,20 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
       if (saveResult == null) return;
+
+      // Chaos Engineering: Check available disk space at destination
+      final destinationDir = File(saveResult).parent.path;
+      final availableSpace = await SystemToolsChecker.getAvailableDiskSpace(destinationDir);
+      final estimatedNeeded = (totalSourceSize * 1.1).toInt(); // 10% overhead for archive
+
+      if (availableSpace < estimatedNeeded) {
+        _showErrorDialog(
+          'Insufficient Disk Space',
+          'Required: ~${AppConstants.formatBytes(estimatedNeeded)}\n'
+          'Available: ${AppConstants.formatBytes(availableSpace)}',
+        );
+        return;
+      }
 
       // Chaos Engineering: Check required tools
       final archiveType = ArchiveService().detectArchiveType(saveResult);
@@ -425,6 +462,35 @@ class _HomeScreenState extends State<HomeScreen> {
       final result = await FilePicker.platform.getDirectoryPath();
       if (result == null) return;
 
+      // Chaos Engineering: Calculate directory size
+      int directorySize = 0;
+      try {
+        final dir = Directory(result);
+        if (await dir.exists()) {
+          await for (final entity in dir.list(recursive: true)) {
+            if (entity is File) {
+              try {
+                directorySize += await entity.length();
+              } catch (e) {
+                // Continue with other files
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // If we can't calculate size, continue with warning
+      }
+
+      // Chaos Engineering: Check if directory size is reasonable
+      if (directorySize > AppConstants.maxArchiveSizeBytes * 2) {
+        _showErrorDialog(
+          'Directory Too Large',
+          'Directory size: ${AppConstants.formatBytes(directorySize)}\n'
+          'Maximum: ${AppConstants.formatBytes(AppConstants.maxArchiveSizeBytes * 2)}',
+        );
+        return;
+      }
+
       final archiveName = await _showArchiveNameDialog();
       if (archiveName == null || archiveName.isEmpty) return;
 
@@ -434,6 +500,20 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
       if (saveResult == null) return;
+
+      // Chaos Engineering: Check available disk space at destination
+      final destinationDir = File(saveResult).parent.path;
+      final availableSpace = await SystemToolsChecker.getAvailableDiskSpace(destinationDir);
+      final estimatedNeeded = (directorySize * 1.1).toInt(); // 10% overhead for archive
+
+      if (availableSpace < estimatedNeeded) {
+        _showErrorDialog(
+          'Insufficient Disk Space',
+          'Required: ~${AppConstants.formatBytes(estimatedNeeded)}\n'
+          'Available: ${AppConstants.formatBytes(availableSpace)}',
+        );
+        return;
+      }
 
       // Chaos Engineering: Check required tools
       final archiveType = ArchiveService().detectArchiveType(saveResult);
@@ -988,6 +1068,26 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
+      // Chaos Engineering: Check file size before reading
+      final fileSize = await file.length();
+      const maxPreviewSize = 10 * 1024 * 1024; // 10MB limit for text preview
+
+      if (fileSize > maxPreviewSize) {
+        _safeSetState(() => _isLoading = false);
+        _showErrorDialog(
+          'File Too Large for Preview',
+          'File size: ${AppConstants.formatBytes(fileSize)}\n'
+          'Maximum for preview: ${AppConstants.formatBytes(maxPreviewSize)}\n\n'
+          'Please extract the archive to view this file.',
+        );
+        try {
+          await tempDir.delete(recursive: true);
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+        return;
+      }
+
       final content = await file.readAsString();
       try {
         await tempDir.delete(recursive: true);
@@ -1179,6 +1279,26 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!await extractedFile.exists()) {
         _safeSetState(() => _isLoading = false);
         _showErrorDialog('Preview Failed', 'The extracted archive file was not found.');
+        return;
+      }
+
+      // Chaos Engineering: Check nested archive size
+      final nestedArchiveSize = await extractedFile.length();
+      const maxNestedArchiveSize = 500 * 1024 * 1024; // 500MB limit for nested archive preview
+
+      if (nestedArchiveSize > maxNestedArchiveSize) {
+        _safeSetState(() => _isLoading = false);
+        _showErrorDialog(
+          'Nested Archive Too Large',
+          'Nested archive size: ${AppConstants.formatBytes(nestedArchiveSize)}\n'
+          'Maximum for preview: ${AppConstants.formatBytes(maxNestedArchiveSize)}\n\n'
+          'Please extract the main archive first to access this nested archive.',
+        );
+        try {
+          await tempDir.delete(recursive: true);
+        } catch (e) {
+          // Ignore cleanup errors
+        }
         return;
       }
 
