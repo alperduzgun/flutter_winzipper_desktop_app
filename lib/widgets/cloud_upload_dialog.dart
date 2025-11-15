@@ -16,17 +16,18 @@ part 'cloud_upload_dialog_progress.dart';
 /// Main dialog for cloud upload functionality
 class CloudUploadDialog extends StatelessWidget {
   final String filePath;
+  final ICloudService cloudService;
 
   const CloudUploadDialog({
     Key? key,
     required this.filePath,
+    required this.cloudService,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => CloudUploadCubit(context.read<ICloudService>())
-        ..uploadFile(filePath),
+      create: (context) => CloudUploadCubit(cloudService)..uploadFile(filePath),
       child: BlocBuilder<CloudUploadCubit, CloudUploadState>(
         builder: (context, state) {
           // Allow dismissal only in final states (success/failure)
@@ -77,11 +78,18 @@ class CloudUploadDialog extends StatelessWidget {
   }
 
   /// Show upload dialog
-  static Future<void> show(BuildContext context, String filePath) {
+  static Future<void> show(
+    BuildContext context,
+    String filePath,
+    ICloudService cloudService,
+  ) {
     return showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => CloudUploadDialog(filePath: filePath),
+      builder: (context) => CloudUploadDialog(
+        filePath: filePath,
+        cloudService: cloudService,
+      ),
     );
   }
 }

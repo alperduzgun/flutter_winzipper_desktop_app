@@ -1,3 +1,5 @@
+import 'dart:io';
+
 /// Archive view state data model
 ///
 /// Reduces parameter count by grouping related state
@@ -10,10 +12,12 @@ class ArchiveViewState {
     this.statusMessage = '',
     this.currentArchiveType = ArchiveType.unknown,
     this.currentPath = '',
-    this.isSearching = false,
-    this.searchQuery = '',
     this.selectedIndex,
     this.hoveredIndex,
+    this.downloadsContents = const [],
+    this.currentDownloadsPath = '',
+    this.downloadsHoveredIndex,
+    this.downloadsSelectedIndex,
   });
 
   final String? selectedFilePath;
@@ -23,10 +27,12 @@ class ArchiveViewState {
   final String statusMessage;
   final ArchiveType currentArchiveType;
   final String currentPath;
-  final bool isSearching;
-  final String searchQuery;
   final int? selectedIndex;
   final int? hoveredIndex;
+  final List<FileSystemEntity> downloadsContents;
+  final String currentDownloadsPath;
+  final int? downloadsHoveredIndex;
+  final int? downloadsSelectedIndex;
 
   bool get hasArchive => selectedFilePath != null;
 
@@ -38,8 +44,6 @@ class ArchiveViewState {
     String? statusMessage,
     ArchiveType? currentArchiveType,
     String? currentPath,
-    bool? isSearching,
-    String? searchQuery,
     int? selectedIndex,
     int? hoveredIndex,
   }) {
@@ -51,8 +55,6 @@ class ArchiveViewState {
       statusMessage: statusMessage ?? this.statusMessage,
       currentArchiveType: currentArchiveType ?? this.currentArchiveType,
       currentPath: currentPath ?? this.currentPath,
-      isSearching: isSearching ?? this.isSearching,
-      searchQuery: searchQuery ?? this.searchQuery,
       selectedIndex: selectedIndex ?? this.selectedIndex,
       hoveredIndex: hoveredIndex ?? this.hoveredIndex,
     );

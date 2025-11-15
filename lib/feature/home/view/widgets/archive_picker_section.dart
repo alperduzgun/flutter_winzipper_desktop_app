@@ -2,28 +2,24 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
-import 'package:winzipper/common/constants.dart';
 import 'package:winzipper/feature/home/models/archive_callbacks.dart';
 import 'package:winzipper/feature/home/models/archive_view_state.dart';
 import 'package:winzipper/utils/file_extensions.dart';
 
 /// Archive picker and content viewer
 ///
-/// Reduced from 28 parameters to 3
+/// Reduced from 28 parameters to 2
 /// - state: All view state data
 /// - callbacks: All callback functions
-/// - searchController: TextEditingController (cannot be in state)
 class ArchivePickerSection extends StatelessWidget {
   const ArchivePickerSection({
     required this.state,
     required this.callbacks,
-    required this.searchController,
     super.key,
   });
 
   final ArchiveViewState state;
   final ArchiveCallbacks callbacks;
-  final TextEditingController searchController;
 
   @override
   Widget build(BuildContext context) {
@@ -78,21 +74,6 @@ class ArchivePickerSection extends StatelessWidget {
             state.hasArchive ? callbacks.onExtract : null,
           ),
           _buildCompressButton(context),
-          _buildToolbarButton(
-            Icons.search,
-            'Find',
-            state.hasArchive ? () => callbacks.onSearchToggle(true) : null,
-          ),
-          _buildToolbarButton(
-            Icons.visibility_outlined,
-            'View',
-            state.selectedIndex != null ? callbacks.onViewFile : null,
-          ),
-          _buildToolbarButton(
-            Icons.info_outline,
-            'Info',
-            state.selectedIndex != null ? callbacks.onShowFileInfo : null,
-          ),
           _buildToolbarButton(
             Icons.cloud_upload_outlined,
             'Share',
@@ -173,8 +154,11 @@ class ArchivePickerSection extends StatelessWidget {
             value: 'files',
             child: Row(
               children: [
-                Icon(Icons.insert_drive_file,
-                    size: 18, color: Color(0xFF6E6E73)),
+                Icon(
+                  Icons.insert_drive_file,
+                  size: 18,
+                  color: Color(0xFF6E6E73),
+                ),
                 SizedBox(width: 12),
                 Text('Compress Files...'),
               ],
@@ -227,22 +211,12 @@ class ArchivePickerSection extends StatelessWidget {
   }
 
   Widget _buildArchiveContents() {
-    final folders =
-        state.archiveContents.where((item) => item.endsWith('/')).length;
-    final files = state.archiveContents.length - folders;
-
     return Container(
       color: Colors.white,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildBreadcrumb(),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeInOut,
-            child:
-                state.isSearching ? _buildSearchBar() : const SizedBox.shrink(),
-          ),
           _buildTableHeader(),
           Expanded(
             child: ListView.builder(
@@ -254,7 +228,6 @@ class ArchivePickerSection extends StatelessWidget {
               },
             ),
           ),
-          _buildFooterSummary(folders, files),
         ],
       ),
     );
@@ -263,55 +236,250 @@ class ArchivePickerSection extends StatelessWidget {
   Widget _buildEmptyState() {
     return Container(
       color: Colors.white,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.folder_zip_outlined,
-              size: 120,
-              color: Colors.grey.shade300,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildDownloadsBreadcrumb(),
+          _buildDownloadsTableHeader(),
+          Expanded(
+            child: state.downloadsContents.isEmpty
+                ? _buildDownloadsEmptyFallback()
+                : _buildDownloadsList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDownloadsBreadcrumb() {
+    final parts = state.currentDownloadsPath
+        .split('/')
+        .where((p) => p.isNotEmpty)
+        .toList();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: const BoxDecoration(
+        color: Color(0xFFFAFAFA),
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFE5E5EA), width: 0.5),
+        ),
+      ),
+      child: Row(
+        children: [
+          if (state.currentDownloadsPath.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.arrow_back, size: 18),
+              onPressed: callbacks.onDownloadsNavigateBack,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
             ),
-            const SizedBox(height: 24),
-            Text(
-              'No Archive Selected',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey.shade600,
+          if (state.currentDownloadsPath.isNotEmpty) const SizedBox(width: 8),
+          Icon(Icons.download, color: Colors.grey.shade600, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              state.currentDownloadsPath.isEmpty
+                  ? 'Downloads'
+                  : '.../${parts.last}',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDownloadsTableHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: const BoxDecoration(
+        color: Color(0xFFFAFAFA),
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFE5E5EA), width: 0.5),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 5,
+            child: _buildColumnHeader('Name'),
+          ),
+          Expanded(
+            flex: 3,
+            child: _buildColumnHeader('Kind'),
+          ),
+          SizedBox(
+            width: 100,
+            child: _buildColumnHeader('Size', align: TextAlign.right),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDownloadsList() {
+    return ListView.builder(
+      itemCount: state.downloadsContents.length,
+      itemBuilder: (context, index) {
+        final entity = state.downloadsContents[index];
+        return _buildDownloadsRow(entity, index);
+      },
+    );
+  }
+
+  Widget _buildDownloadsRow(FileSystemEntity entity, int index) {
+    final name = path.basename(entity.path);
+    final isFolder = entity is Directory;
+    final isHovered = state.downloadsHoveredIndex == index;
+    final isSelected = state.downloadsSelectedIndex == index;
+    final stat = entity.statSync();
+
+    final ext = path.extension(name).toLowerCase();
+    final isArchive =
+        ['.zip', '.rar', '.7z', '.tar', '.gz', '.bz2'].contains(ext);
+
+    return MouseRegion(
+      onEnter: (_) => callbacks.onDownloadsHoverChanged(index),
+      onExit: (_) => callbacks.onDownloadsHoverChanged(null),
+      child: InkWell(
+        onTap: () => callbacks.onDownloadsSelectChanged(
+          state.downloadsSelectedIndex == index ? null : index,
+        ),
+        onDoubleTap: () {
+          if (isFolder) {
+            callbacks.onDownloadsNavigateToFolder(name);
+          } else if (isArchive) {
+            callbacks.onDownloadsOpenArchive(entity.path);
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? const Color(0xFF0058D0)
+                : isHovered
+                    ? const Color(0xFFE8E8ED)
+                    : Colors.transparent,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isFolder ? Icons.folder : name.fileIcon,
+                size: 16,
+                color: isFolder
+                    ? const Color(0xFFFFBE0B)
+                    : isSelected
+                        ? Colors.white
+                        : name.fileColor,
               ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Select an archive from Downloads or pick a file',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade500,
-              ),
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: callbacks.onPickFile,
-              icon: const Icon(Icons.file_open),
-              label: const Text('Pick Archive File'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF6A00C),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 16,
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 5,
+                child: Text(
+                  name,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isSelected ? Colors.white : const Color(0xFF000000),
+                    fontWeight: FontWeight.w400,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-            ),
-          ],
+              Expanded(
+                flex: 3,
+                child: Text(
+                  isFolder ? 'Folder' : name.fileKind,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isSelected
+                        ? Colors.white.withOpacity(0.9)
+                        : const Color(0xFF6E6E73),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              SizedBox(
+                width: 100,
+                child: Text(
+                  isFolder
+                      ? '--'
+                      : entity is File
+                          ? _formatBytes(stat.size)
+                          : '--',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isSelected
+                        ? Colors.white.withOpacity(0.9)
+                        : const Color(0xFF6E6E73),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildBreadcrumb() {
-    if (state.isSearching) return const SizedBox.shrink();
+  Widget _buildDownloadsEmptyFallback() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.folder_zip_outlined,
+            size: 120,
+            color: Colors.grey.shade300,
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Downloads folder is empty',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Or pick an archive file to get started',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey.shade500,
+            ),
+          ),
+          const SizedBox(height: 32),
+          ElevatedButton.icon(
+            onPressed: callbacks.onPickFile,
+            icon: const Icon(Icons.file_open),
+            label: const Text('Pick Archive File'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFF6A00C),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 16,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+
+  Widget _buildBreadcrumb() {
     final fileName = state.selectedFilePath != null
         ? path.basename(state.selectedFilePath!)
         : '';
@@ -382,114 +550,14 @@ class ArchivePickerSection extends StatelessWidget {
           const Spacer(),
           PopupMenuButton<String>(
             padding: EdgeInsets.zero,
-            icon: const Icon(Icons.arrow_drop_down,
-                size: 18, color: Color(0xFF8E8E93)),
+            icon: const Icon(
+              Icons.arrow_drop_down,
+              size: 18,
+              color: Color(0xFF8E8E93),
+            ),
             itemBuilder: (context) => [
               const PopupMenuItem(value: 'sort', child: Text('Sort by...')),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSearchBar() {
-    final searchResults = state.searchQuery.isEmpty
-        ? state.archiveContents.length
-        : state.allArchiveContents
-            .where(
-              (item) =>
-                  item.toLowerCase().contains(state.searchQuery.toLowerCase()),
-            )
-            .length;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: const BoxDecoration(
-        color: Color(0xFFFAFAFA),
-        border: Border(
-          bottom: BorderSide(color: Color(0xFFE5E5EA), width: 0.5),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              height: 32,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: const Color(0xFFD1D1D6), width: 0.5),
-              ),
-              child: TextField(
-                controller: searchController,
-                autofocus: true,
-                style: const TextStyle(fontSize: 12, color: Color(0xFF000000)),
-                decoration: InputDecoration(
-                  hintText: 'Search in archive...',
-                  hintStyle:
-                      const TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
-                  prefixIcon: const Icon(Icons.search,
-                      size: 16, color: Color(0xFF8E8E93)),
-                  border: InputBorder.none,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                  isDense: true,
-                  suffixIcon: state.searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.close,
-                              size: 14, color: Color(0xFF8E8E93)),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          onPressed: () {
-                            searchController.clear();
-                            callbacks.onSearchChanged('');
-                          },
-                        )
-                      : null,
-                ),
-                onChanged: callbacks.onSearchChanged,
-              ),
-            ),
-          ),
-          if (state.searchQuery.isNotEmpty) ...[
-            const SizedBox(width: 12),
-            Text(
-              '$searchResults ${searchResults == 1 ? 'result' : 'results'}',
-              style: const TextStyle(
-                fontSize: 11,
-                color: Color(0xFF6E6E73),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-          const SizedBox(width: 12),
-          InkWell(
-            onTap: () {
-              searchController.clear();
-              callbacks.onSearchChanged('');
-              callbacks.onSearchToggle(false);
-            },
-            borderRadius: BorderRadius.circular(4),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Done',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF0066FF),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  SizedBox(width: 4),
-                  Icon(Icons.keyboard_arrow_up,
-                      size: 14, color: Color(0xFF0066FF)),
-                ],
-              ),
-            ),
           ),
         ],
       ),
@@ -508,19 +576,15 @@ class ArchivePickerSection extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            flex: 4,
+            flex: 5,
             child: _buildColumnHeader('Name'),
           ),
           Expanded(
-            flex: 2,
-            child: _buildColumnHeader('Date Modified'),
-          ),
-          Expanded(
-            flex: 2,
+            flex: 3,
             child: _buildColumnHeader('Kind'),
           ),
           SizedBox(
-            width: 80,
+            width: 100,
             child: _buildColumnHeader('Size', align: TextAlign.right),
           ),
         ],
@@ -595,7 +659,7 @@ class ArchivePickerSection extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                flex: 4,
+                flex: 5,
                 child: Text(
                   fileName,
                   style: TextStyle(
@@ -607,20 +671,7 @@ class ArchivePickerSection extends StatelessWidget {
                 ),
               ),
               Expanded(
-                flex: 2,
-                child: Text(
-                  'Yesterday, 22:34',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: isSelected
-                        ? Colors.white.withOpacity(0.9)
-                        : const Color(0xFF6E6E73),
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Expanded(
-                flex: 2,
+                flex: 3,
                 child: Text(
                   isFolder ? 'Folder' : fileName.fileKind,
                   style: TextStyle(
@@ -633,7 +684,7 @@ class ArchivePickerSection extends StatelessWidget {
                 ),
               ),
               SizedBox(
-                width: 80,
+                width: 100,
                 child: Text(
                   isFolder ? '--' : '2.54 MB',
                   textAlign: TextAlign.right,
@@ -648,39 +699,6 @@ class ArchivePickerSection extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildFooterSummary(int folders, int files) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: const BoxDecoration(
-        color: Color(0xFFFAFAFA),
-        border: Border(
-          top: BorderSide(color: Color(0xFFE5E5EA), width: 0.5),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          if (state.selectedFilePath != null)
-            FutureBuilder<int>(
-              future: File(state.selectedFilePath!).length(),
-              builder: (context, snapshot) {
-                final totalSize = snapshot.hasData
-                    ? AppConstants.formatBytes(snapshot.data!)
-                    : '5.2 MB';
-                return Text(
-                  'Total $folders ${folders == 1 ? 'folder' : 'folders'} and $totalSize in $files ${files == 1 ? 'file' : 'files'}',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Color(0xFF8E8E93),
-                  ),
-                );
-              },
-            ),
-        ],
       ),
     );
   }

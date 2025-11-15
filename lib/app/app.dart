@@ -28,29 +28,32 @@ class App extends StatelessWidget {
           );
         }
 
+        final blocProviders = provider();
+        final child = MaterialApp(
+          title: AppFlavor.instance().name,
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          themeMode: ThemeMode.system,
+          home: Scaffold(
+            body: (Platform.isMacOS || Platform.isWindows || Platform.isLinux)
+                ? WindowBorder(
+                    color: const Color(0xFF805306),
+                    width: 1,
+                    child: const HomeView(),
+                  )
+                : const HomeView(),
+          ),
+        );
+
         return MultiRepositoryProvider(
           providers: snapshot.data!,
-          child: MultiBlocProvider(
-            providers: provider(),
-            child: MaterialApp(
-              title: AppFlavor.instance().name,
-              debugShowCheckedModeBanner: false,
-              theme: AppTheme.light,
-              darkTheme: AppTheme.dark,
-              themeMode: ThemeMode.system,
-              home: Scaffold(
-                body: (Platform.isMacOS ||
-                        Platform.isWindows ||
-                        Platform.isLinux)
-                    ? WindowBorder(
-                        color: const Color(0xFF805306),
-                        width: 1,
-                        child: const HomeView(),
-                      )
-                    : const HomeView(),
-              ),
-            ),
-          ),
+          child: blocProviders.isEmpty
+              ? child
+              : MultiBlocProvider(
+                  providers: blocProviders,
+                  child: child,
+                ),
         );
       },
     );

@@ -2,15 +2,14 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:path/path.dart' as path;
 import 'package:winzipper/common/constants.dart';
 import 'package:winzipper/data/service/archive_service.dart';
+import 'package:winzipper/data/service/cloud_service.dart';
 import 'package:winzipper/feature/home/models/archive_callbacks.dart';
 import 'package:winzipper/feature/home/models/archive_view_state.dart';
-import 'package:winzipper/feature/home/models/downloads_callbacks.dart';
-import 'package:winzipper/feature/home/models/downloads_view_state.dart';
 import 'package:winzipper/feature/home/view/widgets/archive_picker_section.dart';
-import 'package:winzipper/feature/home/view/widgets/downloads_browser_section.dart';
 import 'package:winzipper/services/dialog_service.dart';
 import 'package:winzipper/utils/file_extensions.dart';
 import 'package:winzipper/utils/system_tools_checker.dart';
@@ -44,20 +43,11 @@ class _HomeScreenState extends State<HomeScreen> {
   int? _hoveredIndex;
   int? _selectedIndex;
 
-  // Downloads state
+  // Downloads state (for empty state)
   List<FileSystemEntity> _downloadsContents = [];
+  String _currentDownloadsPath = '';
   int? _downloadsHoveredIndex;
   int? _downloadsSelectedIndex;
-  String _currentDownloadsPath = '';
-
-  // Search state
-  bool _isSearching = false;
-  String _searchQuery = '';
-  final TextEditingController _searchController = TextEditingController();
-
-  // Sort state
-  String _sortBy = 'name';
-  bool _sortAscending = true;
 
   @override
   void initState() {
@@ -67,7 +57,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
-    _searchController.dispose();
     super.dispose();
   }
 
@@ -79,7 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ========================================
-  // DOWNLOADS FOLDER OPERATIONS
+  // DOWNLOADS FOLDER (for empty state)
   // ========================================
 
   Future<void> _loadDownloadsFolder({String? subPath}) async {
@@ -98,14 +87,22 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     } catch (e) {
-      if (mounted) {
-        DialogService.showError(
-          context,
-          'Access Error',
-          'Cannot access downloads folder: $e',
-        );
-      }
+      // Silently fail, empty state will show fallback
     }
+  }
+
+  void _sortDownloadsContents() {
+    _downloadsContents.sort((a, b) {
+      final aIsDir = a is Directory;
+      final bIsDir = b is Directory;
+      if (aIsDir != bIsDir) {
+        return aIsDir ? -1 : 1;
+      }
+      return path
+          .basename(a.path)
+          .toLowerCase()
+          .compareTo(path.basename(b.path).toLowerCase());
+    });
   }
 
   void _navigateToDownloadsFolder(String folderName) {
@@ -122,38 +119,6 @@ class _HomeScreenState extends State<HomeScreen> {
     parts.removeLast();
     final newPath = parts.isEmpty ? '' : parts.join('/');
     _loadDownloadsFolder(subPath: newPath.isEmpty ? null : newPath);
-  }
-
-  void _sortDownloadsContents() {
-    _downloadsContents.sort((a, b) {
-      int compare;
-      switch (_sortBy) {
-        case 'name':
-          compare = path
-              .basename(a.path)
-              .toLowerCase()
-              .compareTo(path.basename(b.path).toLowerCase());
-        case 'date':
-          final aStat = a.statSync();
-          final bStat = b.statSync();
-          compare = aStat.modified.compareTo(bStat.modified);
-        case 'kind':
-          final aIsDir = a is Directory;
-          final bIsDir = b is Directory;
-          if (aIsDir == bIsDir) {
-            compare = 0;
-          } else {
-            compare = aIsDir ? -1 : 1;
-          }
-        case 'size':
-          final aSize = a is File ? a.lengthSync() : 0;
-          final bSize = b is File ? b.lengthSync() : 0;
-          compare = aSize.compareTo(bSize);
-        default:
-          compare = 0;
-      }
-      return _sortAscending ? compare : -compare;
-    });
   }
 
   // ========================================
@@ -312,7 +277,8 @@ class _HomeScreenState extends State<HomeScreen> {
             filePath: _selectedFilePath,
             onCloudUpload: () {
               if (_selectedFilePath != null) {
-                CloudUploadDialog.show(context, _selectedFilePath!);
+                final cloudService = context.read<ICloudService>();
+                CloudUploadDialog.show(context, _selectedFilePath!, cloudService);
               }
             },
           );
@@ -449,7 +415,10 @@ class _HomeScreenState extends State<HomeScreen> {
             'Compression Complete',
             'Archive created at:\n$saveResult',
             filePath: saveResult,
-            onCloudUpload: () => CloudUploadDialog.show(context, saveResult),
+            onCloudUpload: () {
+              final cloudService = context.read<ICloudService>();
+              CloudUploadDialog.show(context, saveResult, cloudService);
+            },
           );
         } else {
           var errorMessage = 'Could not create the archive.';
@@ -579,7 +548,10 @@ class _HomeScreenState extends State<HomeScreen> {
             'Compression Complete',
             'Archive created at:\n$saveResult',
             filePath: saveResult,
-            onCloudUpload: () => CloudUploadDialog.show(context, saveResult),
+            onCloudUpload: () {
+              final cloudService = context.read<ICloudService>();
+              CloudUploadDialog.show(context, saveResult, cloudService);
+            },
           );
         } else {
           var errorMessage = 'Could not create the archive.';
@@ -634,11 +606,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _navigateToFolder(String folderPath) {
     _safeSetState(() {
-      if (_isSearching) {
-        _isSearching = false;
-        _searchQuery = '';
-        _searchController.clear();
-      }
       _currentPath = folderPath;
       _archiveContents = _getItemsInCurrentPath(folderPath);
       _selectedIndex = null;
@@ -653,20 +620,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final newPath = parts.isEmpty ? '' : parts.join('/');
 
     _navigateToFolder(newPath);
-  }
-
-  void _clearSelection() {
-    _safeSetState(() {
-      _selectedFilePath = null;
-      _archiveContents = [];
-      _allArchiveContents = [];
-      _statusMessage = '';
-      _currentArchiveType = ArchiveType.unknown;
-      _currentPath = '';
-      _isSearching = false;
-      _searchQuery = '';
-      _searchController.clear();
-    });
   }
 
   // ========================================
@@ -913,10 +866,12 @@ class _HomeScreenState extends State<HomeScreen> {
       statusMessage: _statusMessage,
       currentArchiveType: _currentArchiveType,
       currentPath: _currentPath,
-      isSearching: _isSearching,
-      searchQuery: _searchQuery,
       selectedIndex: _selectedIndex,
       hoveredIndex: _hoveredIndex,
+      downloadsContents: _downloadsContents,
+      currentDownloadsPath: _currentDownloadsPath,
+      downloadsHoveredIndex: _downloadsHoveredIndex,
+      downloadsSelectedIndex: _downloadsSelectedIndex,
     );
 
     final archiveCallbacks = ArchiveCallbacks(
@@ -926,7 +881,8 @@ class _HomeScreenState extends State<HomeScreen> {
       onCompressDirectory: _compressDirectory,
       onCloudUpload: () {
         if (_selectedFilePath != null) {
-          CloudUploadDialog.show(context, _selectedFilePath!);
+          final cloudService = context.read<ICloudService>();
+          CloudUploadDialog.show(context, _selectedFilePath!, cloudService);
         }
       },
       onNavigateToFolder: _navigateToFolder,
@@ -934,67 +890,21 @@ class _HomeScreenState extends State<HomeScreen> {
       onViewFile: _viewSelectedFile,
       onShowFileInfo: _showFileInfo,
       onPreviewNestedArchive: _previewNestedArchive,
-      onSearchChanged: (query) => _safeSetState(() {
-        _searchQuery = query;
-        if (query.isEmpty) {
-          _archiveContents = _getItemsInCurrentPath(_currentPath);
-        } else {
-          _archiveContents = _allArchiveContents
-              .where(
-                (item) => item.toLowerCase().contains(query.toLowerCase()),
-              )
-              .toList();
-        }
-      }),
-      onSearchToggle: (searching) =>
-          _safeSetState(() => _isSearching = searching),
       onHoverChanged: (index) => _safeSetState(() => _hoveredIndex = index),
       onSelectChanged: (index) => _safeSetState(() => _selectedIndex = index),
-    );
-
-    final downloadsState = DownloadsViewState(
-      contents: _downloadsContents,
-      currentPath: _currentDownloadsPath,
-      hoveredIndex: _downloadsHoveredIndex,
-      selectedIndex: _downloadsSelectedIndex,
-      sortBy: _sortBy,
-      sortAscending: _sortAscending,
-    );
-
-    final downloadsCallbacks = DownloadsCallbacks(
-      onNavigateToFolder: _navigateToDownloadsFolder,
-      onNavigateBack: _navigateBackInDownloads,
-      onOpenArchive: _openArchiveFromPath,
-      onHoverChanged: (index) =>
+      onDownloadsNavigateToFolder: _navigateToDownloadsFolder,
+      onDownloadsNavigateBack: _navigateBackInDownloads,
+      onDownloadsOpenArchive: _openArchiveFromPath,
+      onDownloadsHoverChanged: (index) =>
           _safeSetState(() => _downloadsHoveredIndex = index),
-      onSelectChanged: (index) =>
+      onDownloadsSelectChanged: (index) =>
           _safeSetState(() => _downloadsSelectedIndex = index),
-      onSortChanged: (sortBy, ascending) => _safeSetState(() {
-        _sortBy = sortBy;
-        _sortAscending = ascending;
-        _sortDownloadsContents();
-      }),
     );
 
-    return Row(
-      children: [
-        // Downloads browser (left side) - 2 parameters instead of 16
-        DownloadsBrowserSection(
-          state: downloadsState,
-          callbacks: downloadsCallbacks,
-        ),
-
-        const VerticalDivider(width: 1),
-
-        // Archive content area (right side) - 3 parameters instead of 28
-        Expanded(
-          child: ArchivePickerSection(
-            state: archiveState,
-            callbacks: archiveCallbacks,
-            searchController: _searchController,
-          ),
-        ),
-      ],
+    // Archive content area - Full width
+    return ArchivePickerSection(
+      state: archiveState,
+      callbacks: archiveCallbacks,
     );
   }
 }
