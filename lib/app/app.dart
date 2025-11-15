@@ -1,12 +1,13 @@
 import 'dart:io';
+
 import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../core/config/app_flavor.dart';
-import '../core/style/app_theme.dart';
-import '../feature/home/view/home_view.dart';
-import 'locator.dart';
-import 'provider.dart';
+import 'package:winzipper/app/locator.dart';
+import 'package:winzipper/app/provider.dart';
+import 'package:winzipper/core/config/app_flavor.dart';
+import 'package:winzipper/core/style/app_theme.dart';
+import 'package:winzipper/feature/home/view/home_view.dart';
 
 /// Main application widget
 /// Handles dependency injection and app configuration
@@ -34,7 +35,6 @@ class App extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light,
           darkTheme: AppTheme.dark,
-          themeMode: ThemeMode.system,
           home: Scaffold(
             body: (Platform.isMacOS || Platform.isWindows || Platform.isLinux)
                 ? WindowBorder(

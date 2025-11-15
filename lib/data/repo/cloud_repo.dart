@@ -78,7 +78,7 @@ class CloudRepo implements ICloudRepo {
 
     // Add form fields
     request.fields['reqtype'] = 'fileupload';
-    request.fields['time'] = dto.retentionTime;
+    // Note: Catbox.moe ignores 'time' parameter (files are permanent)
 
     // Add file with progress tracking
     var bytesRead = 0;
@@ -89,8 +89,10 @@ class CloudRepo implements ICloudRepo {
         handleData: (List<int> data, EventSink<List<int>> sink) {
           bytesRead += data.length;
           if (onProgress != null) {
-            final progress = bytesRead / fileSize;
-            onProgress(progress);
+            // Report 0-90% for file reading
+            // Last 10% will be for network upload
+            final readProgress = (bytesRead / fileSize) * 0.9;
+            onProgress(readProgress);
           }
           sink.add(data);
         },
@@ -110,9 +112,22 @@ class CloudRepo implements ICloudRepo {
 
     request.files.add(multipartFile);
 
+    // Show 90% progress (file ready, now uploading)
+    if (onProgress != null) {
+      onProgress(0.9);
+    }
+
     // Send request
     final streamedResponse = await request.send().timeout(_timeout);
+
+    // Show 95% progress (upload complete, processing response)
+    if (onProgress != null) {
+      onProgress(0.95);
+    }
+
     final response = await http.Response.fromStream(streamedResponse);
+
+    // Will reach 100% when URL is validated and returned
 
     // Handle response
     return _handleResponse(response, streamedResponse.statusCode);
@@ -128,6 +143,7 @@ class CloudRepo implements ICloudRepo {
           !downloadUrl.contains('<html>') &&
           !downloadUrl.toLowerCase().contains('error') &&
           !downloadUrl.toLowerCase().contains('access denied')) {
+        // Catbox API directly returns files.catbox.moe URLs
         return downloadUrl;
       } else {
         throw Exception(

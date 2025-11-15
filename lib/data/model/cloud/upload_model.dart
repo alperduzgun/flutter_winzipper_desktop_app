@@ -49,7 +49,7 @@ class UploadModel extends Equatable {
     );
   }
 
-  /// Create from URL string (Litterbox returns plain URL)
+  /// Create from URL string (Catbox returns plain URL)
   factory UploadModel.fromUrl(
     String url,
     String fileName, [
@@ -58,7 +58,8 @@ class UploadModel extends Equatable {
     return UploadModel(
       url: url,
       fileName: fileName,
-      expiresAt: DateTime.now().add(const Duration(hours: 72)),
+      // Catbox files are permanent (never expire)
+      expiresAt: DateTime.now().add(const Duration(days: 36500)), // ~100 years
       fileSizeBytes: fileSizeBytes,
     );
   }

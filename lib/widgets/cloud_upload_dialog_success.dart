@@ -206,7 +206,18 @@ class _CloudUploadSuccessViewState extends State<_CloudUploadSuccessView> {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+
+          // Close button
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.grey.shade700,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+            child: const Text('Close'),
+          ),
+          const SizedBox(height: 16),
 
           // Info text
           Container(
@@ -229,7 +240,7 @@ class _CloudUploadSuccessViewState extends State<_CloudUploadSuccessView> {
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  'Link expires in 72 hours (3 days)',
+                  'File stored permanently',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.blue.shade800,
